@@ -1,0 +1,123 @@
+# ErrorLens - laboratório local completo
+#   docker compose up --build -d     # inicia tudo
+#   docker compose down              # encerra (mantém os dados)
+#   docker compose down -v           # encerra e APAGA os dados persistidos do PostgreSQL
+name: errorlens
+
+x-backend-env: &otel-env
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://errorlens-otel-collector:4318/v1/traces
+  LOG_FORMAT: logstash
+
+services:
+  errorlens-postgres:
+    image: postgres:17-alpine
+    container_name: errorlens-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-errorlens}
+      POSTGRES_USER: ${POSTGRES_USER:-errorlens}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-errorlens-lab-db}
+    volumes:
+      - errorlens-pgdata:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    # Porta não publicada: acessível apenas pela rede interna do Compose.
+    networks: [errorlens]
+    restart: unless-stopped
+
+  errorlens-jaeger:
+    image: jaegertracing/jaeger:2.12.0
+    container_name: errorlens-jaeger
+    ports:
+      - "${JAEGER_UI_PORT:-16686}:16686"   # Jaeger UI
+    networks: [errorlens]
+    restart: unless-stopped
+
+  errorlens-otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.140.0
+    container_name: errorlens-otel-collector
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./infrastructure/otel/otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    depends_on:
+      - errorlens-jaeger
+    networks: [errorlens]
+    restart: unless-stopped
+
+  errorlens-dependency-simulator:
+    build:
+      context: .
+      dockerfile: dependency-simulator/Dockerfile
+    image: errorlens/dependency-simulator:1.0.0
+    container_name: errorlens-dependency-simulator
+    environment:
+      <<: *otel-env
+      SPRING_PROFILES_ACTIVE: lab
+      SIMULATOR_CONTROL_TOKEN: ${SIMULATOR_CONTROL_TOKEN:-lab-control-token}
+    depends_on:
+      - errorlens-otel-collector
+    # Porta não publicada: chamado apenas pelo backend na rede interna.
+    networks: [errorlens]
+    restart: unless-stopped
+
+  errorlens-backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: errorlens/backend:1.0.0
+    container_name: errorlens-backend
+    environment:
+      <<: *otel-env
+      SPRING_PROFILES_ACTIVE: lab
+      DB_HOST: errorlens-postgres
+      DB_PORT: "5432"
+      DB_NAME: ${POSTGRES_DB:-errorlens}
+      DB_USER: ${POSTGRES_USER:-errorlens}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-errorlens-lab-db}
+      SIMULATOR_BASE_URL: http://errorlens-dependency-simulator:8090
+      SIMULATOR_CONTROL_TOKEN: ${SIMULATOR_CONTROL_TOKEN:-lab-control-token}
+      OTEL_COLLECTOR_HEALTH_URL: http://errorlens-otel-collector:13133/
+      JAEGER_INTERNAL_URL: http://errorlens-jaeger:16686/
+      JAEGER_PUBLIC_URL: ${JAEGER_PUBLIC_URL:-http://localhost:16686}
+      ERRORLENS_ADMIN_PASSWORD: ${ERRORLENS_ADMIN_PASSWORD:-errorlens}
+      ERRORLENS_ANALYST_PASSWORD: ${ERRORLENS_ANALYST_PASSWORD:-analyst-lab}
+      ERRORLENS_VIEWER_PASSWORD: ${ERRORLENS_VIEWER_PASSWORD:-viewer-lab}
+      ERRORLENS_AUDITOR_PASSWORD: ${ERRORLENS_AUDITOR_PASSWORD:-auditor-lab}
+      ERRORLENS_RUNNER_PASSWORD: ${ERRORLENS_RUNNER_PASSWORD:-runner-lab}
+      ERRORLENS_RETENTION_DAYS: ${ERRORLENS_RETENTION_DAYS:-30}
+    depends_on:
+      errorlens-postgres:
+        condition: service_healthy
+      errorlens-dependency-simulator:
+        condition: service_healthy
+      errorlens-otel-collector:
+        condition: service_started
+    # Publicada para testes locais (Swagger UI, curl). O frontend usa o proxy do Nginx.
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    networks: [errorlens]
+    restart: unless-stopped
+
+  errorlens-frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    image: errorlens/frontend:1.0.0
+    container_name: errorlens-frontend
+    depends_on:
+      errorlens-backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-4200}:80"
+    networks: [errorlens]
+    restart: unless-stopped
+
+volumes:
+  errorlens-pgdata:
+
+networks:
+  errorlens:
+    name: errorlens-network

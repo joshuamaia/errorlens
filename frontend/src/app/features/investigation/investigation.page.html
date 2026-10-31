@@ -1,0 +1,219 @@
+<div class="page" data-testid="investigation-page">
+  <div class="page-header">
+    <div class="page-icon"><el-icon name="scan-search" [size]="22" /></div>
+    <div>
+      <h1>Investigation Center</h1>
+      <p>Investigação detalhada de uma execução: requisição, resposta, exception, timeline, logs e diagnóstico</p>
+    </div>
+    <span class="spacer"></span>
+    <form class="row" (ngSubmit)="search()">
+      <input class="input lookup" name="lookup" [(ngModel)]="lookup" placeholder="#id ou correlationId" data-testid="investigation-lookup" />
+      <button class="btn" type="submit"><el-icon name="search" [size]="15" /> Abrir</button>
+    </form>
+  </div>
+
+  @if (loading()) {
+    <div class="skeleton" style="height: 120px"></div>
+    <div class="skeleton" style="height: 360px"></div>
+  } @else if (notFound()) {
+    <el-empty-state icon="search" title="Execução não encontrada" message="Verifique o identificador ou o correlationId informado." testId="not-found">
+      <a class="btn" routerLink="/history">Ir para o histórico</a>
+    </el-empty-state>
+  } @else if (detail(); as d) {
+    <section class="card summary" data-testid="investigation-summary">
+      <div class="row wrap">
+        <h2>Execução #{{ d.summary.id }}</h2>
+        <el-status-badge [status]="d.summary.httpStatus" data-testid="investigation-status" />
+        <el-outcome-badge [outcome]="d.summary.outcome" />
+        <span class="badge">{{ d.summary.scenarioCode }} – {{ d.summary.scenarioName }}</span>
+        <span class="badge">modo {{ d.summary.mode }}</span>
+        <span class="spacer"></span>
+        <button class="btn sm" type="button" (click)="copyTechnicalInfo()" data-testid="copy-info"><el-icon name="copy" [size]="14" /> Copiar informações técnicas</button>
+        <div class="export">
+          <span class="small muted">Exportar:</span>
+          @for (f of ['json', 'markdown', 'pdf']; track f) {
+            <button class="btn sm" type="button" [disabled]="exporting() !== null" (click)="export($any(f))" [attr.data-testid]="'export-' + f">
+              @if (exporting() === f) { <el-icon name="loader" class="spin" [size]="13" /> } @else { <el-icon name="file-down" [size]="13" /> }
+              {{ f === 'markdown' ? 'MD' : f.toUpperCase() }}
+            </button>
+          }
+        </div>
+      </div>
+      <div class="ids">
+        <div><span class="small muted">CorrelationId</span><button class="link mono" type="button" (click)="copy(d.summary.correlationId, 'CorrelationId')" data-testid="correlation-id">{{ d.summary.correlationId }} <el-icon name="copy" [size]="12" /></button></div>
+        <div><span class="small muted">TraceId</span>
+          @if (d.summary.traceId) {
+            <span class="row"><button class="link mono" type="button" (click)="copy(d.summary.traceId, 'TraceId')">{{ d.summary.traceId }}</button>
+            @if (d.jaegerTraceUrl) { <a [href]="d.jaegerTraceUrl" target="_blank" rel="noopener" title="Abrir no Jaeger" data-testid="jaeger-link"><el-icon name="external-link" [size]="13" /></a> }</span>
+          } @else { <span class="faint">não registrado</span> }
+        </div>
+        <div><span class="small muted">Data e hora</span><span>{{ fmtDate(d.summary.startedAt) }}</span></div>
+        <div><span class="small muted">Duração</span><strong class="mono">{{ fmtDuration(d.summary.durationMs) }}</strong></div>
+        <div><span class="small muted">Endpoint</span><span class="row"><el-method-badge [method]="d.summary.httpMethod" /><code class="ellipsis">{{ d.summary.endpoint }}</code></span></div>
+      </div>
+    </section>
+
+    <div class="tabs" role="tablist">
+      @for (t of tabs; track t.key) {
+        <button type="button" role="tab" [class.active]="activeTab() === t.key" (click)="selectTab(t.key)" [attr.data-testid]="'tab-' + t.key">
+          <el-icon [name]="t.icon" [size]="15" /> {{ t.label }}
+          @if (t.key === 'logs') { <span class="count">{{ d.logCount }}</span> }
+          @if (t.key === 'diagnosis' && d.diagnoses.length) { <span class="count">{{ d.diagnoses.length }}</span> }
+          @if (t.key === 'timeline') { <span class="count">{{ d.stepCount }}</span> }
+        </button>
+      }
+    </div>
+
+    @switch (activeTab()) {
+      @case ('overview') {
+        <div class="grid grid-2">
+          <section class="card">
+            <div class="card-header"><h3>Resumo</h3></div>
+            <dl class="kv">
+              <dt>Cenário</dt><dd>{{ d.summary.scenarioCode }} – {{ d.summary.scenarioName }}</dd>
+              <dt>Descrição</dt><dd>{{ d.scenarioDescription }}</dd>
+              <dt>Status HTTP</dt><dd><el-status-badge [status]="d.summary.httpStatus" /> esperado {{ d.summary.expectedStatus }}
+                <span class="badge" [class.success]="d.summary.matchedExpectation" [class.danger]="!d.summary.matchedExpectation">{{ d.summary.matchedExpectation ? 'conforme' : 'divergente' }}</span></dd>
+              <dt>errorCode</dt><dd class="mono">{{ d.summary.errorCode ?? '—' }}</dd>
+              <dt>Exception</dt><dd class="mono">{{ d.summary.exceptionClass ?? '—' }}</dd>
+              <dt>Root cause</dt><dd class="mono">{{ d.summary.rootCauseClass ?? '—' }}</dd>
+              <dt>Disparado por</dt><dd>{{ d.triggeredBy ?? '—' }}</dd>
+              <dt>Componentes envolvidos</dt><dd><span class="chips">@for (c of d.components; track c) { <span class="badge info">{{ c }}</span> }</span></dd>
+            </dl>
+          </section>
+          <section class="card">
+            <div class="card-header"><h3>Diagnóstico provável</h3></div>
+            @if (d.diagnoses.length) {
+              <p><strong>{{ d.diagnoses[0].title }}</strong> <span class="badge warning">confiança {{ d.diagnoses[0].confidence }}</span></p>
+              <p class="muted small">{{ d.diagnoses[0].description }}</p>
+              <button class="btn sm" type="button" (click)="selectTab('diagnosis')">Ver diagnóstico completo</button>
+            } @else {
+              <el-empty-state icon="circle-check" title="Nenhum padrão de erro identificado" message="A execução não apresentou evidências que correspondam às regras de diagnóstico." />
+            }
+            @if (d.verification; as v) {
+              <div class="card-header verify"><el-icon name="list-checks" [size]="16" /><h3>{{ v.name }}</h3><span class="badge" [class.success]="v.passed" [class.danger]="!v.passed" data-testid="verification">{{ v.conclusion }}</span></div>
+              <table class="table">
+                <thead><tr><th>Verificação</th><th>Esperado</th><th>Obtido</th><th></th></tr></thead>
+                <tbody>
+                  @for (c of v.checks; track c.description) {
+                    <tr><td>{{ c.description }}</td><td class="mono">{{ c.expected }}</td><td class="mono">{{ c.actual }}</td><td><el-icon [name]="c.passed ? 'check' : 'x'" [class.text-success]="c.passed" [class.text-danger]="!c.passed" [size]="15" /></td></tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </section>
+        </div>
+        @if (d.attempts.length) {
+          <section class="card">
+            <div class="card-header"><el-icon name="network" [size]="16" /><h3>Tentativas à dependência externa</h3></div>
+            <div class="table-wrap">
+              <table class="table" data-testid="attempts">
+                <thead><tr><th>#</th><th>Operação</th><th>Resultado</th><th>HTTP</th><th>Duração</th><th>Circuito</th><th>Erro</th><th>Detalhe</th></tr></thead>
+                <tbody>
+                  @for (a of d.attempts; track a.number) {
+                    <tr>
+                      <td>{{ a.number }}</td><td class="mono small">{{ a.operation }}</td>
+                      <td><span class="badge" [class.success]="a.outcome === 'SUCCESS'" [class.danger]="a.outcome === 'FAILURE' || a.outcome === 'TIMEOUT'" [class.degraded]="a.outcome === 'REJECTED'">{{ a.outcome }}</span></td>
+                      <td>{{ a.httpStatus ?? '—' }}</td><td class="mono small">{{ fmtDuration(a.durationMs) }}</td>
+                      <td>{{ a.circuitState ?? '—' }}</td><td class="mono small">{{ a.errorClass ? simple(a.errorClass) : '—' }}</td><td class="small muted">{{ a.detail ?? '' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </section>
+        }
+      }
+      @case ('request') {
+        <div class="grid grid-2">
+          <section class="card"><div class="card-header"><h3>Headers (sanitizados)</h3></div><el-code-viewer [value]="requestHeadersJson()" language="json" height="300px" /></section>
+          <section class="card"><div class="card-header"><h3>Body (sanitizado)</h3></div>
+            @if (d.requestBody) { <el-code-viewer [value]="requestBody()" language="json" height="300px" /> } @else { <el-empty-state icon="inbox" title="Requisição sem corpo" /> }
+          </section>
+        </div>
+      }
+      @case ('response') {
+        <div class="grid grid-2">
+          <section class="card"><div class="card-header"><h3>Headers</h3><span class="spacer"></span><el-status-badge [status]="d.summary.httpStatus" /></div><el-code-viewer [value]="responseHeadersJson()" language="json" height="300px" /></section>
+          <section class="card"><div class="card-header"><h3>Body</h3></div>
+            @if (d.responseBody) { <el-code-viewer [value]="responseBody()" language="json" height="300px" /> } @else { <el-empty-state icon="inbox" title="Resposta sem corpo" /> }
+          </section>
+        </div>
+      }
+      @case ('exception') {
+        <section class="card" data-testid="exception-tab">
+          @if (d.exceptionChain.length) {
+            <div class="card-header"><h3>Cadeia de exceptions</h3></div>
+            <ol class="chain">
+              @for (link of d.exceptionChain; track $index; let last = $last; let first = $first) {
+                <li [class.root]="last">
+                  <div class="row wrap">
+                    @if (first) { <span class="badge danger">Exception</span> } @else { <span class="badge warning">Caused by</span> }
+                    @if (last) { <span class="badge danger" data-testid="root-cause"><el-icon name="crosshair" [size]="12" /> Root cause</span> }
+                    <strong class="mono">{{ link.className }}</strong>
+                  </div>
+                  @if (link.message) { <pre class="msg">{{ link.message }}</pre> }
+                </li>
+              }
+            </ol>
+          } @else {
+            <el-empty-state icon="circle-check" title="Nenhuma exception registrada" message="A execução terminou sem exceptions tratadas." />
+          }
+        </section>
+      }
+      @case ('stacktrace') {
+        <section class="card">
+          @if (d.stackTrace) {
+            <div class="card-header"><h3>Stack trace (acesso restrito, sanitizado)</h3><span class="spacer"></span>
+              <a class="btn sm" routerLink="/stacktrace" [state]="{ content: d.stackTrace }"><el-icon name="code" [size]="14" /> Analisar no Stack Trace Analyzer</a></div>
+            <el-code-viewer [value]="d.stackTrace" language="java" height="520px" />
+          } @else {
+            <el-empty-state icon="circle-check" title="Sem stack trace" message="Não há stack trace para execuções sem exception." />
+          }
+        </section>
+      }
+      @case ('timeline') {
+        <section class="card">
+          <div class="card-header"><el-icon name="waypoints" [size]="16" /><h3>Execution Timeline</h3><span class="spacer"></span>
+            @if (d.jaegerTraceUrl) { <a class="btn sm" [href]="d.jaegerTraceUrl" target="_blank" rel="noopener"><el-icon name="telescope" [size]="14" /> Trace distribuído no Jaeger</a> }</div>
+          @if (timeline(); as t) { <el-timeline-view [timeline]="t" /> }
+        </section>
+      }
+      @case ('logs') {
+        <section class="card">
+          <div class="card-header"><el-icon name="file-text" [size]="16" /><h3>Logs correlacionados</h3><span class="small muted">correlationId {{ d.summary.correlationId }}</span></div>
+          <el-log-table [rows]="logRows()" />
+        </section>
+      }
+      @case ('diagnosis') {
+        <div class="diagnoses" data-testid="diagnosis-tab">
+          <div class="alert info small"><el-icon name="info" [size]="16" /> {{ d.diagnosisDisclaimer }}</div>
+          @for (dx of d.diagnoses; track dx.ruleId; let i = $index) {
+            <el-diagnosis-card [diagnosis]="dx" [index]="i" />
+          } @empty {
+            <el-empty-state icon="circle-check" title="Nenhum diagnóstico" message="Nenhuma regra do Diagnosis Engine correspondeu às evidências desta execução." />
+          }
+        </div>
+      }
+    }
+  } @else {
+    <section class="card">
+      <div class="card-header"><h3>Execuções recentes</h3></div>
+      <p class="muted small">Selecione uma execução para investigar ou busque pelo identificador/correlationId.</p>
+      <div class="table-wrap">
+        <table class="table">
+          <tbody>
+            @for (e of recent(); track e.id) {
+              <tr class="clickable" [routerLink]="['/investigation', e.id]">
+                <td class="mono">#{{ e.id }}</td><td>{{ e.scenarioCode }} – {{ e.scenarioName }}</td><td><el-status-badge [status]="e.httpStatus" /></td>
+                <td class="small">{{ fmtDate(e.startedAt) }}</td><td class="mono small faint">{{ e.correlationId }}</td>
+              </tr>
+            } @empty {
+              <tr><td><el-empty-state icon="inbox" title="Nenhuma execução registrada" message="Execute um cenário no Scenario Lab." /></td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+</div>

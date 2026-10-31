@@ -1,0 +1,7 @@
+{
+  "method": "GET",
+  "url": "http://legacy-service:8080/api/orders/42/summary",
+  "status": 500,
+  "headers": "Content-Type: application/json",
+  "body": "{\n  \"timestamp\": \"2026-10-31T12:05:00.000+00:00\",\n  \"status\": 500,\n  \"error\": \"Internal Server Error\",\n  \"exception\": \"java.lang.NullPointerException\",\n  \"trace\": \"java.lang.NullPointerException: Cannot invoke \\\"com.acme.orders.Address.getCity()\\\" because \\\"address\\\" is null\\n\\tat com.acme.orders.OrderSummaryService.build(OrderSummaryService.java:31)\\n\\tat com.acme.orders.OrderController.summary(OrderController.java:22)\",\n  \"message\": \"Cannot invoke \\\"com.acme.orders.Address.getCity()\\\" because \\\"address\\\" is null\",\n  \"path\": \"/api/orders/42/summary\"\n}"
+}

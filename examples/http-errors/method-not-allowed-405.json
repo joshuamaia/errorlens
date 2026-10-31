@@ -1,0 +1,7 @@
+{
+  "method": "PATCH",
+  "url": "http://localhost:8080/api/v1/lab/customers",
+  "status": 405,
+  "headers": "Allow: GET, POST\nContent-Type: application/problem+json",
+  "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"Method Not Allowed\",\n  \"status\": 405,\n  \"detail\": \"Method 'PATCH' is not supported.\",\n  \"instance\": \"/api/v1/lab/customers\",\n  \"errorCode\": \"METHOD_NOT_ALLOWED\"\n}"
+}

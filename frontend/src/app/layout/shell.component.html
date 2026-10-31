@@ -1,0 +1,95 @@
+<div class="shell" [class.menu-open]="menuOpen()" (window:keydown)="focusSearch($event, searchInput)">
+  <aside class="sidebar">
+    <a class="brand" routerLink="/dashboard">
+      <el-logo [size]="38" />
+      <div>
+        <strong>ErrorLens</strong>
+        <span>Execute. Trace. Investigate. Understand.</span>
+      </div>
+    </a>
+    <nav>
+      @for (item of nav; track item.path) {
+        @if (!item.analyst || auth.isAnalyst()) {
+          <a [routerLink]="item.path" routerLinkActive="active" (click)="menuOpen.set(false)" [attr.data-testid]="'nav-' + item.path.slice(1)">
+            <el-icon [name]="item.icon" [size]="17" />
+            <span>{{ item.label }}</span>
+          </a>
+        }
+      }
+      <div class="divider"></div>
+      <a routerLink="/tour" routerLinkActive="active" (click)="menuOpen.set(false)" data-testid="nav-tour">
+        <el-icon name="map" [size]="17" />
+        <span>Guided Tour</span>
+      </a>
+    </nav>
+    <span class="spacer"></span>
+    <a routerLink="/settings" routerLinkActive="active" class="settings" (click)="menuOpen.set(false)">
+      <el-icon name="settings" [size]="17" />
+      <span>Configurações</span>
+    </a>
+  </aside>
+  <div class="backdrop" (click)="menuOpen.set(false)"></div>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="btn ghost icon menu-btn" type="button" (click)="menuOpen.set(!menuOpen())" aria-label="Menu">
+        <el-icon name="list-tree" />
+      </button>
+      <form class="search" (ngSubmit)="submitSearch()">
+        <el-icon name="search" [size]="16" />
+        <input
+          #searchInput
+          name="search"
+          [(ngModel)]="search"
+          (keydown)="onSearchKey($event, searchInput)"
+          placeholder="Buscar por execução, cenário, exception ou correlationId..."
+          data-testid="global-search"
+        />
+        <kbd>Ctrl + K</kbd>
+      </form>
+      <span class="spacer"></span>
+      <div class="health" tabindex="0" data-testid="health-indicator">
+        <span class="dot {{ healthTone(health()?.overall) }}"></span>
+        <span class="small muted health-label">Serviços</span>
+        <div class="health-pop card">
+          @for (s of health()?.services ?? []; track s.key) {
+            <div class="small row"><span class="dot {{ healthTone(s.status) }}"></span> {{ s.name }}: {{ s.status }}</div>
+          } @empty {
+            <div class="small muted">Verificando serviços…</div>
+          }
+        </div>
+      </div>
+      <button class="btn ghost icon" type="button" (click)="theme.toggle()" [title]="theme.theme() === 'dark' ? 'Tema claro' : 'Tema escuro'" data-testid="theme-toggle">
+        <el-icon [name]="theme.theme() === 'dark' ? 'sun' : 'moon'" />
+      </button>
+      <button class="btn ghost icon" type="button" routerLink="/history" title="Execuções recentes">
+        <el-icon name="bell" />
+      </button>
+      <div class="user">
+        <button class="user-btn" type="button" (click)="userMenu.set(!userMenu())" data-testid="user-menu">
+          <span class="avatar"><el-icon name="user" [size]="18" /></span>
+          <span class="who">
+            <strong>{{ auth.username() }}</strong>
+            <span>{{ auth.primaryRole() }}</span>
+          </span>
+          <el-icon name="chevron-down" [size]="14" />
+        </button>
+        @if (userMenu()) {
+          <div class="user-menu card" (click)="userMenu.set(false)">
+            <div class="small muted">Roles: {{ auth.roles().join(', ') }}</div>
+            <a routerLink="/settings"><el-icon name="settings" [size]="15" /> Configurações</a>
+            <button type="button" (click)="auth.logout()" data-testid="logout"><el-icon name="logout" [size]="15" /> Sair</button>
+          </div>
+        }
+      </div>
+    </header>
+
+    <main class="content">
+      <router-outlet />
+    </main>
+  </div>
+
+  @if (tour.active()) {
+    <el-tour-panel />
+  }
+</div>

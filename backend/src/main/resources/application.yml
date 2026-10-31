@@ -1,0 +1,173 @@
+spring:
+  application:
+    name: errorlens-backend
+  profiles:
+    default: lab
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:errorlens}
+    username: ${DB_USER:errorlens}
+    password: ${DB_PASSWORD:errorlens-lab-db}
+    hikari:
+      pool-name: errorlens-pool
+      maximum-pool-size: 15
+      connection-timeout: 5000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  servlet:
+    multipart:
+      max-file-size: 2MB
+      max-request-size: 3MB
+  jackson:
+    default-property-inclusion: non_null
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+  error:
+    include-stacktrace: never
+    include-message: never
+  tomcat:
+    max-swallow-size: 2MB
+    max-http-form-post-size: 1MB
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,circuitbreakers,retries
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when-authorized
+  health:
+    circuitbreakers:
+      enabled: false
+  tracing:
+    sampling:
+      probability: 1.0
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
+          timeout: 5s
+  otlp:
+    metrics:
+      export:
+        enabled: false
+  logging:
+    export:
+      otlp:
+        enabled: false
+
+logging:
+  structured:
+    format:
+      console: ${LOG_FORMAT:logstash}
+  level:
+    root: INFO
+    dev.errorlens: INFO
+    org.hibernate.SQL: WARN
+    org.springframework.security: WARN
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+    tags-sorter: alpha
+
+resilience4j:
+  timelimiter:
+    instances:
+      creditScore:
+        timeout-duration: 1500ms
+        cancel-running-future: true
+  retry:
+    instances:
+      customerProfile:
+        max-attempts: 4
+        wait-duration: 200ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - org.springframework.web.client.HttpServerErrorException
+          - org.springframework.web.client.ResourceAccessException
+  circuitbreaker:
+    instances:
+      paymentGateway:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 4
+        minimum-number-of-calls: 4
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 1200ms
+        permitted-number-of-calls-in-half-open-state: 2
+        automatic-transition-from-open-to-half-open-enabled: false
+        record-exceptions:
+          - org.springframework.web.client.HttpServerErrorException
+          - org.springframework.web.client.ResourceAccessException
+      recommendations:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 80
+        wait-duration-in-open-state: 5s
+        record-exceptions:
+          - org.springframework.web.client.HttpServerErrorException
+          - org.springframework.web.client.ResourceAccessException
+
+errorlens:
+  lab:
+    enabled: true
+  runner:
+    base-url: ${ERRORLENS_RUNNER_BASE_URL:}
+    request-timeout: 20s
+    max-concurrent-executions: 4
+  security:
+    token-ttl: 8h
+    users:
+      admin-password: ${ERRORLENS_ADMIN_PASSWORD:errorlens}
+      analyst-password: ${ERRORLENS_ANALYST_PASSWORD:analyst-lab}
+      viewer-password: ${ERRORLENS_VIEWER_PASSWORD:viewer-lab}
+      auditor-password: ${ERRORLENS_AUDITOR_PASSWORD:auditor-lab}
+      runner-password: ${ERRORLENS_RUNNER_PASSWORD:runner-lab}
+  simulator:
+    base-url: ${SIMULATOR_BASE_URL:http://localhost:8090}
+    control-token: ${SIMULATOR_CONTROL_TOKEN:lab-control-token}
+    connect-timeout: 1s
+    read-timeout: 6s
+  retention:
+    days: ${ERRORLENS_RETENTION_DAYS:30}
+    cron: "0 15 3 * * *"
+  health:
+    otel-collector-url: ${OTEL_COLLECTOR_HEALTH_URL:http://localhost:13133/}
+    jaeger-url: ${JAEGER_INTERNAL_URL:http://localhost:16686/}
+    jaeger-public-url: ${JAEGER_PUBLIC_URL:http://localhost:16686}
+  analyzer:
+    max-stacktrace-chars: 524288
+    max-log-bytes: 2097152
+    max-log-entries: 5000
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+errorlens:
+  lab:
+    enabled: false
+springdoc:
+  swagger-ui:
+    enabled: false
+  api-docs:
+    enabled: false

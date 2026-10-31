@@ -1,0 +1,78 @@
+.toolbar {
+  gap: 12px;
+}
+.search {
+  width: 300px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.group-title {
+  font-size: 15px;
+  color: var(--el-text-muted);
+  margin-top: 6px;
+}
+
+.scenario {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.15s, transform 0.15s;
+  &:hover { border-color: var(--el-border-strong); }
+  &.highlight { border-color: var(--el-primary); box-shadow: 0 0 0 3px var(--el-primary-soft); }
+  h3 { font-size: 14.5px; min-width: 0; }
+  .code {
+    font-weight: 700;
+    color: var(--el-primary);
+    background: var(--el-primary-soft);
+    padding: 2px 7px;
+    border-radius: 6px;
+    font-size: 12px;
+  }
+  .desc { margin: 0; min-height: 34px; line-height: 1.45; }
+  .endpoint code { color: var(--el-text-muted); min-width: 0; }
+  footer { margin-top: auto; gap: 6px; }
+}
+
+.meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+  margin: 0;
+  div { min-width: 0; }
+  dt { font-size: 11px; color: var(--el-text-faint); }
+  dd { margin: 2px 0 0; font-size: 12.5px; }
+}
+
+.result {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-width: 1px;
+  h3 { font-size: 15px; }
+  &.ok { border-color: rgba(34, 197, 94, 0.55); el-icon:first-child { color: var(--el-success); } }
+  &.fail { border-color: rgba(239, 68, 68, 0.55); el-icon:first-child { color: var(--el-danger); } }
+  &.deg { border-color: rgba(249, 115, 22, 0.55); el-icon:first-child { color: var(--el-degraded); } }
+}
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, auto));
+  gap: 12px 24px;
+  div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .wide { grid-column: span 1; }
+}
+@media (max-width: 1100px) {
+  .result-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  h4 { font-size: 13px; margin-top: 6px; }
+  p { margin: 0; line-height: 1.55; }
+  ul { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+}

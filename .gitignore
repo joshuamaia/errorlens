@@ -1,0 +1,32 @@
+# Build outputs
+target/
+dist/
+out-tsc/
+.angular/
+coverage/
+test-results/
+playwright-report/
+blob-report/
+
+# Dependencies
+node_modules/
+
+# IDE
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+
+# Environment / secrets
+.env
+*.local
+
+# Extra CA certificates (ambientes com proxy/antivírus que inspeciona TLS)
+infrastructure/certs/*
+!infrastructure/certs/README.md
+
+# Logs
+*.log
+!examples/logs/*.log

@@ -1,0 +1,192 @@
+<div class="page" data-testid="comparator-page">
+  <div class="page-header">
+    <div class="page-icon"><el-icon name="arrow-left-right" [size]="22" /></div>
+    <div>
+      <h1>Execution Comparator</h1>
+      <p>Compare duas execuções lado a lado e localize a primeira divergência observável</p>
+    </div>
+  </div>
+
+  <form class="card selector" (ngSubmit)="submit()">
+    <div class="field">
+      <label>Execução A</label>
+      <select class="input" name="left" [(ngModel)]="leftId" data-testid="compare-left">
+        <option [ngValue]="null">Selecione…</option>
+        @for (e of recent(); track e.id) {
+          <option [ngValue]="e.id">#{{ e.id }} · {{ e.scenarioCode }} · HTTP {{ e.httpStatus }} · {{ fmtDate(e.startedAt) }}</option>
+        }
+        @if (leftId && !recent().some((r) => r.id === leftId)) { <option [ngValue]="leftId">#{{ leftId }}</option> }
+      </select>
+    </div>
+    <button class="btn icon swap" type="button" (click)="swap()" title="Inverter"><el-icon name="arrow-left-right" [size]="16" /></button>
+    <div class="field">
+      <label>Execução B</label>
+      <select class="input" name="right" [(ngModel)]="rightId" data-testid="compare-right">
+        <option [ngValue]="null">Selecione…</option>
+        @for (e of recent(); track e.id) {
+          <option [ngValue]="e.id">#{{ e.id }} · {{ e.scenarioCode }} · HTTP {{ e.httpStatus }} · {{ fmtDate(e.startedAt) }}</option>
+        }
+        @if (rightId && !recent().some((r) => r.id === rightId)) { <option [ngValue]="rightId">#{{ rightId }}</option> }
+      </select>
+    </div>
+    <button class="btn primary" type="submit" [disabled]="!leftId || !rightId || leftId === rightId" data-testid="compare-submit"><el-icon name="compare" [size]="15" /> Comparar</button>
+  </form>
+
+  @if (error()) { <div class="alert danger">{{ error() }}</div> }
+
+  @if (loading()) {
+    <div class="skeleton" style="height: 400px"></div>
+  } @else if (comparison(); as c) {
+    <div class="grid grid-2 heads">
+      @for (side of [{ k: 'A', s: c.left }, { k: 'B', s: c.right }]; track side.k) {
+        <section class="card head" [class.a]="side.k === 'A'" [class.b]="side.k === 'B'">
+          <div class="row wrap">
+            <span class="side">{{ side.k }}</span>
+            <a [routerLink]="['/investigation', side.s.id]"><strong>#{{ side.s.id }}</strong></a>
+            <span>{{ side.s.scenarioCode }} – {{ side.s.scenarioName }}</span>
+            <span class="badge">{{ side.s.mode }}</span>
+            <span class="spacer"></span>
+            <el-status-badge [status]="side.s.httpStatus" [attr.data-testid]="'status-' + side.k" />
+            <el-outcome-badge [outcome]="side.s.outcome" />
+          </div>
+          <div class="row wrap small muted">
+            <span><el-icon name="timer" [size]="13" /> {{ fmtDuration(side.s.durationMs) }}</span>
+            <span class="mono">{{ side.s.exceptionClass ? simple(side.s.exceptionClass) : 'sem exception' }}</span>
+            <span class="mono faint">{{ side.s.correlationId }}</span>
+          </div>
+        </section>
+      }
+    </div>
+
+    @if (c.firstDivergence; as dv) {
+      <div class="alert warning divergence" data-testid="first-divergence">
+        <el-icon name="split" [size]="20" />
+        <div>
+          <strong>Primeira divergência observável — {{ dv.layerLabel }}</strong>
+          <div>{{ dv.description }}</div>
+        </div>
+      </div>
+    } @else {
+      <div class="alert success"><el-icon name="circle-check" /> Os fluxos instrumentados são equivalentes.</div>
+    }
+
+    <div class="grid grid-2">
+      <section class="card">
+        <div class="card-header"><el-icon name="lightbulb" [size]="16" /><h3>Observações</h3></div>
+        <ul class="obs">
+          @for (o of c.observations; track $index) { <li>{{ o }}</li> }
+        </ul>
+        <p class="small muted note"><el-icon name="info" [size]="14" /> {{ c.causalityNote }}</p>
+      </section>
+      <section class="card">
+        <div class="card-header"><el-icon name="list-checks" [size]="16" /><h3>Campos principais</h3><span class="badge warning">{{ fieldDiffCount() }} diferença(s)</span></div>
+        <div class="table-wrap"><table class="table fields" data-testid="field-diff">
+          <thead><tr><th>Campo</th><th>A</th><th>B</th></tr></thead>
+          <tbody>
+            @for (f of c.fields; track f.field) {
+              <tr [class.diff]="f.different"><td class="muted">{{ f.label }}</td><td class="mono small">{{ f.left ?? '—' }}</td><td class="mono small">{{ f.right ?? '—' }}</td></tr>
+            }
+          </tbody>
+        </table></div>
+      </section>
+    </div>
+
+    <div class="tabs">
+      <button type="button" [class.active]="section() === 'flow'" (click)="section.set('flow')"><el-icon name="workflow" [size]="15" /> Fluxo</button>
+      <button type="button" [class.active]="section() === 'request'" (click)="section.set('request')"><el-icon name="arrow-right" [size]="15" /> Request <span class="count">{{ c.requestDiff.length }}</span></button>
+      <button type="button" [class.active]="section() === 'response'" (click)="section.set('response')"><el-icon name="arrow-left-right" [size]="15" /> Response <span class="count">{{ c.responseDiff.length }}</span></button>
+      <button type="button" [class.active]="section() === 'exceptions'" (click)="section.set('exceptions')"><el-icon name="bug" [size]="15" /> Exceptions</button>
+      <button type="button" [class.active]="section() === 'logs'" (click)="section.set('logs')"><el-icon name="file-text" [size]="15" /> Logs</button>
+    </div>
+
+    @switch (section()) {
+      @case ('flow') {
+        <section class="card">
+          <div class="row wrap legend">
+            <span class="small muted">Etapas alinhadas por camada e nome (LCS). A linha destacada é a primeira divergência.</span>
+            <span class="spacer"></span>
+            <label class="row small"><input type="checkbox" [checked]="onlyDifferences()" (change)="onlyDifferences.set(!onlyDifferences())" /> Somente diferenças</label>
+          </div>
+          <div class="flow" data-testid="aligned-steps">
+            <div class="flow-head"><span>Execução A</span><span></span><span>Execução B</span></div>
+            @for (row of steps(); track row.index) {
+              <div class="flow-row {{ row.relation }}" [class.first]="c.firstDivergence?.index === row.index">
+                <div class="cell">
+                  @if (row.left; as l) {
+                    <span class="badge {{ tone(l.status) }}">{{ l.status }}</span>
+                    <span class="small muted layer">{{ l.layerLabel }}</span>
+                    <span class="name ellipsis" [title]="l.name">{{ l.name }}</span>
+                    <span class="small mono faint">{{ fmtMicros(l.durationMicros) }}</span>
+                  }
+                </div>
+                <div class="rel small" [title]="relationLabel(row.relation)">
+                  @switch (row.relation) {
+                    @case ('SAME') { <el-icon name="check" [size]="14" class="text-success" /> }
+                    @case ('STATUS_DIFFERENT') { <el-icon name="alert" [size]="14" class="text-warning" /> }
+                    @default { <el-icon name="x" [size]="14" class="text-danger" /> }
+                  }
+                </div>
+                <div class="cell">
+                  @if (row.right; as r) {
+                    <span class="badge {{ tone(r.status) }}">{{ r.status }}</span>
+                    <span class="small muted layer">{{ r.layerLabel }}</span>
+                    <span class="name ellipsis" [title]="r.name">{{ r.name }}</span>
+                    <span class="small mono faint">{{ fmtMicros(r.durationMicros) }}</span>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        </section>
+      }
+      @case ('request') {
+        <section class="card">
+          @if (c.requestDiff.length) {
+            <table class="table"><thead><tr><th>Caminho</th><th>A</th><th>B</th><th>Tipo</th></tr></thead>
+              <tbody>@for (d of c.requestDiff; track d.path) { <tr><td class="mono small">{{ d.path }}</td><td class="mono small">{{ d.left ?? '—' }}</td><td class="mono small">{{ d.right ?? '—' }}</td><td><span class="badge">{{ d.kind }}</span></td></tr> }</tbody></table>
+          } @else { <el-empty-state icon="check" title="Corpos de requisição idênticos" /> }
+        </section>
+      }
+      @case ('response') {
+        <section class="card">
+          @if (c.responseDiff.length) {
+            <table class="table"><thead><tr><th>Caminho</th><th>A</th><th>B</th><th>Tipo</th></tr></thead>
+              <tbody>@for (d of c.responseDiff; track d.path) { <tr><td class="mono small">{{ d.path }}</td><td class="mono small cellwrap">{{ d.left ?? '—' }}</td><td class="mono small cellwrap">{{ d.right ?? '—' }}</td><td><span class="badge">{{ d.kind }}</span></td></tr> }</tbody></table>
+          } @else { <el-empty-state icon="check" title="Corpos de resposta idênticos" /> }
+          <h4 class="sub">Headers de resposta</h4>
+          <table class="table"><thead><tr><th>Header</th><th>A</th><th>B</th></tr></thead>
+            <tbody>@for (h of c.headerDiff; track h.field) { <tr [class.diff]="h.different"><td class="mono small">{{ h.label }}</td><td class="mono small">{{ h.left ?? '—' }}</td><td class="mono small">{{ h.right ?? '—' }}</td></tr> }</tbody></table>
+        </section>
+      }
+      @case ('exceptions') {
+        <div class="grid grid-2">
+          @for (side of [{ k: 'A', list: c.leftExceptions }, { k: 'B', list: c.rightExceptions }]; track side.k) {
+            <section class="card">
+              <div class="card-header"><h3>Execução {{ side.k }}</h3></div>
+              @for (e of side.list; track $index; let first = $first) {
+                <div class="exc"><span class="badge" [class.danger]="first" [class.warning]="!first">{{ first ? 'Exception' : 'Caused by' }}</span> <strong class="mono">{{ e.className }}</strong><div class="small muted">{{ e.message }}</div></div>
+              } @empty { <el-empty-state icon="circle-check" title="Sem exception" /> }
+            </section>
+          }
+        </div>
+      }
+      @case ('logs') {
+        <div class="grid grid-2">
+          @for (side of [{ k: 'A', logs: c.leftLogs, levels: c.logLevels.left }, { k: 'B', logs: c.rightLogs, levels: c.logLevels.right }]; track side.k) {
+            <section class="card">
+              <div class="card-header"><h3>Execução {{ side.k }}</h3><span class="spacer"></span>
+                <span class="badge info">INFO {{ side.levels['INFO'] }}</span><span class="badge warning">WARN {{ side.levels['WARN'] }}</span><span class="badge danger">ERROR {{ side.levels['ERROR'] }}</span></div>
+              <ul class="loglist">
+                @for (l of side.logs; track l.seq) {
+                  <li [class.err]="l.level === 'ERROR'" [class.warn]="l.level === 'WARN'"><span class="badge">{{ l.level }}</span> {{ l.message }}</li>
+                }
+              </ul>
+            </section>
+          }
+        </div>
+      }
+    }
+  } @else if (!error()) {
+    <el-empty-state icon="compare" title="Selecione duas execuções" message="Escolha as execuções A e B acima, ou use 'Comparar' no Scenario Lab para executar as variantes de sucesso e falha automaticamente." />
+  }
+</div>

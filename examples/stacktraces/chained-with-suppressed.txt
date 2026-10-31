@@ -1,0 +1,20 @@
+dev.errorlens.domain.exception.InvoiceGenerationException: Não foi possível gerar a fatura do pedido 3.
+	at dev.errorlens.application.lab.OrderService.generateInvoice(OrderService.java:89)
+	at dev.errorlens.application.lab.OrderService$$SpringCGLIB$$0.generateInvoice(<generated>)
+	at dev.errorlens.interfaces.lab.LabOrderController.invoice(LabOrderController.java:58)
+	at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1088)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+	Suppressed: java.io.IOException: Falha ao fechar o leitor de metadados
+		at dev.errorlens.application.lab.MetadataReader.close(MetadataReader.java:31)
+		at dev.errorlens.application.lab.OrderService.generateInvoice(OrderService.java:84)
+		... 4 more
+Caused by: dev.errorlens.domain.exception.InvoiceDataException: Metadado de faturamento inválido: 'parcelas' deve ser numérico.
+	at dev.errorlens.application.lab.InvoiceMetadataParser.installments(InvoiceMetadataParser.java:24)
+	at dev.errorlens.application.lab.OrderService.generateInvoice(OrderService.java:80)
+	... 4 more
+Caused by: java.lang.NumberFormatException: For input string: "três"
+	at java.base/java.lang.NumberFormatException.forInputString(NumberFormatException.java:67)
+	at java.base/java.lang.Integer.parseInt(Integer.java:662)
+	at java.base/java.lang.Integer.parseInt(Integer.java:778)
+	at dev.errorlens.application.lab.InvoiceMetadataParser.installments(InvoiceMetadataParser.java:22)
+	... 5 more

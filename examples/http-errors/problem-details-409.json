@@ -1,0 +1,7 @@
+{
+  "method": "POST",
+  "url": "http://localhost:8080/api/v1/lab/customers",
+  "status": 409,
+  "headers": "Content-Type: application/problem+json\nX-Correlation-Id: 6f1c2d3e-4b5a-4c7d-8e9f-a0b1c2d3e4f5",
+  "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"Conflict\",\n  \"status\": 409,\n  \"detail\": \"Já existe um cliente com o e-mail informado.\",\n  \"instance\": \"/api/v1/lab/customers\",\n  \"errorCode\": \"CUSTOMER_EMAIL_DUPLICATED\",\n  \"correlationId\": \"6f1c2d3e-4b5a-4c7d-8e9f-a0b1c2d3e4f5\",\n  \"timestamp\": \"2026-10-31T12:00:00Z\"\n}"
+}

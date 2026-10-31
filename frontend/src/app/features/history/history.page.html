@@ -1,0 +1,111 @@
+<div class="page" data-testid="history-page">
+  <div class="page-header">
+    <div class="page-icon"><el-icon name="history" [size]="22" /></div>
+    <div>
+      <h1>Histórico</h1>
+      <p>Execuções persistidas no PostgreSQL com filtros, ordenação e paginação</p>
+    </div>
+    <span class="spacer"></span>
+    <button class="btn primary" type="button" [disabled]="selected().length !== 2" (click)="compareSelected()" data-testid="compare-selected">
+      <el-icon name="compare" [size]="15" /> Comparar selecionadas ({{ selected().length }}/2)
+    </button>
+  </div>
+
+  <form class="card filters" [formGroup]="filters" (ngSubmit)="search()" data-testid="history-filters">
+    <div class="field"><label>De</label><input class="input" type="datetime-local" formControlName="from" /></div>
+    <div class="field"><label>Até</label><input class="input" type="datetime-local" formControlName="to" /></div>
+    <div class="field">
+      <label>Resultado</label>
+      <select class="input" formControlName="outcome" data-testid="filter-outcome">
+        <option value="">Todos</option><option value="SUCCESS">Sucesso</option><option value="FAILURE">Falha</option><option value="DEGRADED">Degradada</option>
+      </select>
+    </div>
+    <div class="field"><label>Status HTTP</label><input class="input" type="number" formControlName="httpStatus" placeholder="ex.: 409" /></div>
+    <div class="field">
+      <label>Cenário</label>
+      <select class="input" formControlName="scenario" data-testid="filter-scenario">
+        <option value="">Todos</option>
+        @for (s of scenarios(); track s.code) { <option [value]="s.code">{{ s.code }} – {{ s.name }}</option> }
+      </select>
+    </div>
+    <div class="field"><label>CorrelationId</label><input class="input mono" formControlName="correlationId" /></div>
+    <div class="field"><label>Exception</label><input class="input" formControlName="exception" placeholder="ex.: DataIntegrity" /></div>
+    <div class="field"><label>Busca livre</label><input class="input" formControlName="q" placeholder="#id, código, traceId…" data-testid="filter-q" /></div>
+    <div class="actions">
+      <button class="btn" type="button" (click)="clear()">Limpar</button>
+      <button class="btn primary" type="submit" data-testid="history-search"><el-icon name="filter" [size]="15" /> Filtrar</button>
+    </div>
+  </form>
+
+  <section class="card">
+    <div class="table-wrap">
+      <table class="table" data-testid="history-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th class="sortable" (click)="sortBy('id')"># {{ sortIcon('id') }}</th>
+            <th class="sortable" (click)="sortBy('startedAt')">Data e Hora {{ sortIcon('startedAt') }}</th>
+            <th class="sortable" (click)="sortBy('scenarioCode')">Cenário {{ sortIcon('scenarioCode') }}</th>
+            <th class="sortable" (click)="sortBy('httpStatus')">Status {{ sortIcon('httpStatus') }}</th>
+            <th>Resultado</th>
+            <th class="sortable" (click)="sortBy('durationMs')" data-testid="sort-duration">Duração {{ sortIcon('durationMs') }}</th>
+            <th>Exception</th>
+            <th>CorrelationId</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (e of page()?.content ?? []; track e.id) {
+            <tr class="clickable" [class.selected]="selected().includes(e.id)" (click)="open(e.id)">
+              <td><input type="checkbox" [checked]="selected().includes(e.id)" (click)="toggle(e.id, $event)" [attr.aria-label]="'Selecionar #' + e.id" /></td>
+              <td class="mono">#{{ e.id }}</td>
+              <td class="small">{{ fmtDate(e.startedAt) }}</td>
+              <td>{{ e.scenarioCode }} – {{ e.scenarioName }} @if (e.mode !== 'DEFAULT') { <span class="badge">{{ e.mode }}</span> }</td>
+              <td><el-status-badge [status]="e.httpStatus" /></td>
+              <td><el-outcome-badge [outcome]="e.outcome" /></td>
+              <td class="mono small">{{ fmtDuration(e.durationMs) }}</td>
+              <td class="mono small">{{ e.exceptionClass ? simple(e.exceptionClass) : '–' }}</td>
+              <td class="mono small faint corr">{{ e.correlationId }}</td>
+              <td class="row">
+                <button class="btn ghost sm icon" type="button" title="Investigar" (click)="open(e.id)"><el-icon name="eye" [size]="15" /></button>
+                @if (auth.isAdmin()) {
+                  <button class="btn ghost sm icon" type="button" title="Excluir" (click)="remove(e, $event)"><el-icon name="trash" [size]="15" /></button>
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="10">
+              @if (loading()) { <div class="skeleton" style="height: 120px"></div> }
+              @else { <el-empty-state icon="inbox" title="Nenhuma execução encontrada" message="Ajuste os filtros ou execute cenários no Scenario Lab." /> }
+            </td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (page(); as p) {
+      <div class="row pager">
+        <span class="small muted" data-testid="history-total">{{ p.totalElements }} execução(ões) · página {{ p.page + 1 }} de {{ p.totalPages || 1 }}</span>
+        <span class="spacer"></span>
+        <select class="input size" [ngModel]="pageSize()" (ngModelChange)="pageSize.set($event); search()">
+          @for (s of [10, 20, 50, 100]; track s) { <option [ngValue]="s">{{ s }} / página</option> }
+        </select>
+        <button class="btn sm" type="button" [disabled]="p.page === 0" (click)="go(p.page - 1)"><el-icon name="chevron-left" [size]="14" /></button>
+        <button class="btn sm" type="button" [disabled]="p.page + 1 >= p.totalPages" (click)="go(p.page + 1)" data-testid="next-page"><el-icon name="chevron-right" [size]="14" /></button>
+      </div>
+    }
+  </section>
+
+  @if (auth.isAdmin()) {
+    <section class="card retention">
+      <el-icon name="clock" [size]="18" class="muted" />
+      <div>
+        <strong>Política de retenção</strong>
+        <p class="small muted">Execuções antigas são removidas automaticamente pelo backend (configuração <code>ERRORLENS_RETENTION_DAYS</code>). Você também pode aplicar a retenção manualmente.</p>
+      </div>
+      <span class="spacer"></span>
+      <input class="input days" type="number" min="1" [(ngModel)]="retentionDays" />
+      <span class="small muted">dias</span>
+      <button class="btn danger" type="button" (click)="purge()"><el-icon name="trash" [size]="15" /> Aplicar retenção</button>
+    </section>
+  }
+</div>

@@ -1,0 +1,130 @@
+.range {
+  width: 190px;
+}
+
+.charts {
+  grid-template-columns: 1.5fr 1.1fr 0.9fr;
+}
+.lower {
+  grid-template-columns: 1.2fr 1fr 0.9fr;
+}
+.bottom {
+  grid-template-columns: 2.2fr 1fr;
+}
+@media (max-width: 1280px) {
+  .charts, .lower, .bottom { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .charts, .lower, .bottom { grid-template-columns: minmax(0, 1fr); }
+}
+
+.chart {
+  height: 230px;
+}
+.small-chart {
+  height: 190px;
+}
+
+.donut-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.donut {
+  width: 180px;
+  height: 180px;
+  flex-shrink: 0;
+}
+.legend {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+  li { display: flex; align-items: center; gap: 6px; }
+}
+
+.services {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--el-border);
+    font-size: 13px;
+    &:last-child { border-bottom: none; }
+  }
+  .svc-icon { color: var(--el-success); }
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.3fr) 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+}
+.bar-label {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bar-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--el-surface-3);
+  overflow: hidden;
+}
+.bar {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+}
+.bar-value {
+  min-width: 70px;
+  text-align: right;
+}
+
+.scenarios {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  li {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--el-border);
+    font-size: 13px;
+    &:last-child { border-bottom: none; }
+  }
+  a { color: var(--el-text); }
+}
+
+.tour-card {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  p { margin: 0; max-width: 75%; line-height: 1.5; }
+  .btn { align-self: flex-start; }
+  .road {
+    position: absolute;
+    right: -30px;
+    bottom: -40px;
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    border: 18px solid rgba(124, 92, 255, 0.35);
+    border-left-color: transparent;
+    transform: rotate(-30deg);
+  }
+}

@@ -1,0 +1,168 @@
+<div class="page" data-testid="dashboard-page">
+  <div class="page-header">
+    <div class="page-icon"><el-icon name="gauge" [size]="22" /></div>
+    <div>
+      <h1>Dashboard</h1>
+      <p>Visão geral das execuções, erros e saúde dos serviços</p>
+    </div>
+    <span class="spacer"></span>
+    <div class="row">
+      <el-icon name="calendar" class="muted" [size]="16" />
+      <select class="input range" [ngModel]="range()" (ngModelChange)="changeRange($event)" data-testid="range-select">
+        @for (r of ranges; track r.value) {
+          <option [value]="r.value">{{ r.label }}</option>
+        }
+      </select>
+      <button class="btn icon" type="button" (click)="load()" title="Atualizar" data-testid="refresh"><el-icon name="refresh" [class.spin]="loading()" /></button>
+    </div>
+  </div>
+
+  @if (failed()) {
+    <div class="alert danger"><el-icon name="alert" /> Não foi possível carregar os indicadores. Verifique se o backend está em execução.</div>
+  }
+
+  @if (summary(); as s) {
+    <div class="grid grid-5">
+      <el-kpi-card label="Total de Execuções" [value]="fmtNumber(s.total)" icon="play" tone="primary" [trend]="s.trends.totalChangePct" [series]="s.sparklines.total" testId="kpi-total" />
+      <el-kpi-card label="Bem-sucedidas" [value]="fmtNumber(s.success)" icon="check" tone="success" [trend]="s.trends.successChangePct" [series]="s.sparklines.success" testId="kpi-success" />
+      <el-kpi-card label="Com Falha" [value]="fmtNumber(s.failure)" icon="x" tone="danger" [trend]="s.trends.failureChangePct" [higherIsBad]="true" [series]="s.sparklines.failure" testId="kpi-failure" />
+      <el-kpi-card label="Taxa de Erro" [value]="fmtNumber(s.errorRate, 1) + '%'" icon="percent" tone="danger" [trend]="s.trends.errorRateDeltaPp" trendUnit="p.p." [higherIsBad]="true" [series]="s.sparklines.errorRate" testId="kpi-error-rate" />
+      <el-kpi-card label="Tempo Médio" [value]="fmtDuration(s.avgDurationMs)" icon="timer" tone="primary" [trend]="s.trends.avgDurationChangePct" [higherIsBad]="true" [series]="s.sparklines.avgDuration" testId="kpi-avg" />
+    </div>
+  } @else if (loading()) {
+    <div class="grid grid-5">
+      @for (i of [1, 2, 3, 4, 5]; track i) {
+        <div class="skeleton" style="height: 96px"></div>
+      }
+    </div>
+  }
+
+  @if (metrics(); as m) {
+    <div class="grid charts">
+      <section class="card">
+        <div class="card-header"><h3>Evolução das Execuções</h3></div>
+        @if (summary()?.total) {
+          <div class="chart" [elChart]="evolutionChart()"></div>
+        } @else {
+          <el-empty-state icon="chart" title="Sem execuções no período" message="Execute cenários no Scenario Lab para alimentar o dashboard." />
+        }
+      </section>
+
+      <section class="card">
+        <div class="card-header"><h3>Distribuição por Status HTTP</h3></div>
+        @if (m.statusDistribution.length) {
+          <div class="donut-wrap">
+            <div class="donut" [elChart]="statusChart()"></div>
+            <ul class="legend">
+              @for (s of m.statusDistribution; track s.status) {
+                <li><span class="dot" [style.background]="statusLegendColor(s.status)"></span><strong>{{ s.status || '—' }}</strong> – {{ s.count }} ({{ fmtNumber(s.percent, 1) }}%)</li>
+              }
+            </ul>
+          </div>
+        } @else {
+          <el-empty-state icon="chart" title="Sem dados" />
+        }
+      </section>
+
+      <section class="card">
+        <div class="card-header"><h3>Saúde dos Serviços</h3></div>
+        <ul class="services" data-testid="services-health">
+          @for (svc of health()?.services ?? []; track svc.key) {
+            <li>
+              <el-icon [name]="serviceIcon(svc.key)" class="svc-icon" [size]="17" />
+              <span class="svc-name">{{ svc.name }}</span>
+              @if (svc.publicUrl) {
+                <a [href]="svc.publicUrl" target="_blank" rel="noopener" title="Abrir"><el-icon name="external-link" [size]="13" /></a>
+              }
+              <span class="spacer"></span>
+              <span class="small" [class.text-success]="svc.status === 'UP'" [class.text-danger]="svc.status !== 'UP'" [title]="svc.detail">
+                <span class="dot" [class.up]="svc.status === 'UP'" [class.down]="svc.status !== 'UP'"></span>
+                {{ svc.status === 'UP' ? 'Operacional' : 'Indisponível' }}
+              </span>
+            </li>
+          } @empty {
+            <li class="muted small">Verificando serviços…</li>
+          }
+        </ul>
+      </section>
+    </div>
+
+    <div class="grid lower">
+      <section class="card">
+        <div class="card-header"><el-icon name="bug" class="card-icon" [size]="16" /><h3>Exceptions mais frequentes</h3></div>
+        @for (e of m.topExceptions; track e.className + e.rootCause; let i = $index) {
+          <div class="bar-row" [title]="e.className + (e.rootCause ? ' (root cause ' + e.rootCause + ')' : '')">
+            <span class="bar-label mono">{{ e.exception }}</span>
+            <span class="bar-track"><span class="bar" [style.width.%]="(e.count / maxException()) * 100" [style.background]="exceptionColor(i)"></span></span>
+            <span class="small muted bar-value">{{ e.count }} ({{ fmtNumber(e.percent, 1) }}%)</span>
+          </div>
+        } @empty {
+          <el-empty-state icon="circle-check" title="Nenhuma exception no período" />
+        }
+      </section>
+
+      <section class="card">
+        <div class="card-header"><el-icon name="flag" class="card-icon" [size]="16" /><h3>Cenários mais utilizados</h3></div>
+        <ul class="scenarios">
+          @for (sc of m.topScenarios; track sc.code) {
+            <li>
+              <a routerLink="/scenarios" [queryParams]="{ code: sc.code }"><strong>{{ sc.code }}</strong> – {{ sc.name }}</a>
+              <span class="spacer"></span>
+              <span class="small muted">{{ sc.count }} execuções</span>
+            </li>
+          } @empty {
+            <li class="muted small">Nenhum cenário executado no período.</li>
+          }
+        </ul>
+      </section>
+
+      <section class="card accent tour-card">
+        <div class="card-header"><el-icon name="map" [size]="18" /><h3>Guided Tour</h3></div>
+        <p class="small">Conheça o ErrorLens em um tour guiado com execução de cenários, investigação de erros e comparação de resultados.</p>
+        <button class="btn primary" type="button" routerLink="/tour" (click)="tour.start()" data-testid="start-tour"><el-icon name="play" [size]="15" /> Iniciar Tour</button>
+        <div class="road"></div>
+      </section>
+    </div>
+
+    <div class="grid bottom">
+      <section class="card">
+        <div class="card-header">
+          <el-icon name="list-checks" class="card-icon" [size]="16" /><h3>Últimas Execuções</h3>
+          <span class="spacer"></span>
+          @if (auth.isAnalyst()) {
+            <a routerLink="/history" class="small">Ver histórico completo</a>
+          }
+        </div>
+        <div class="table-wrap">
+          <table class="table" data-testid="latest-executions">
+            <thead>
+              <tr><th>#</th><th>Data e Hora</th><th>Cenário</th><th>Status</th><th>Duração</th><th>Exception</th><th>CorrelationId</th></tr>
+            </thead>
+            <tbody>
+              @for (e of m.latestExecutions; track e.id) {
+                <tr class="clickable" (click)="open(e.id)">
+                  <td class="mono">#{{ e.id }}</td>
+                  <td class="small">{{ fmtDate(e.startedAt) }}</td>
+                  <td>{{ e.scenarioCode }} – {{ e.scenarioName }}</td>
+                  <td><el-status-badge [status]="e.httpStatus" /></td>
+                  <td class="mono small">{{ fmtDuration(e.durationMs) }}</td>
+                  <td class="mono small">{{ e.exceptionClass ? simple(e.exceptionClass) : '–' }}</td>
+                  <td class="mono small faint">{{ e.correlationId }}</td>
+                </tr>
+              } @empty {
+                <tr><td colspan="7"><el-empty-state icon="inbox" title="Nenhuma execução registrada" message="Use o Scenario Lab ou o Guided Tour para gerar as primeiras execuções." /></td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section class="card">
+        <div class="card-header"><el-icon name="timer" class="card-icon" [size]="16" /><h3>Duração das requisições</h3></div>
+        <div class="chart small-chart" [elChart]="durationChart()"></div>
+        @if (summary(); as s) {
+          <p class="small muted">p95: <strong>{{ fmtDuration(s.p95DurationMs) }}</strong> · média: <strong>{{ fmtDuration(s.avgDurationMs) }}</strong></p>
+        }
+      </section>
+    </div>
+  }
+</div>

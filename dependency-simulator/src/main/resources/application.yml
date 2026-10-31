@@ -1,0 +1,45 @@
+spring:
+  application:
+    name: errorlens-dependency-simulator
+  profiles:
+    default: lab
+
+server:
+  port: ${SERVER_PORT:8090}
+  shutdown: graceful
+  error:
+    include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  tracing:
+    sampling:
+      probability: 1.0
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
+          timeout: 5s
+  otlp:
+    metrics:
+      export:
+        enabled: false
+  logging:
+    export:
+      otlp:
+        enabled: false
+
+logging:
+  structured:
+    format:
+      console: ${LOG_FORMAT:logstash}
+
+simulator:
+  control-token: ${SIMULATOR_CONTROL_TOKEN:lab-control-token}
+  max-delay-ms: 10000
+  max-behaviors: 1000
+  behavior-ttl: 10m

@@ -1,0 +1,9 @@
+	at java.base/sun.nio.ch.NioSocketImpl.timedRead(NioSocketImpl.java:278)
+	at java.base/sun.nio.ch.NioSocketImpl.implRead(NioSocketImpl.java:304)
+	at java.base/java.net.Socket$SocketInputStream.read(Socket.java:1099)
+	at com.acme.billing.client.PaymentGatewayClient.authorize(PaymentGatewayClient.java:58)
+	at com.acme.billing.service.CheckoutService.pay(CheckoutService.java:112)
+Caused by: java.net.SocketTimeoutException: Read timed out
+	at java.base/sun.nio.ch.NioSocketImpl.timedRead(NioSocketImpl.java:278)
+	at java.base/sun.nio.ch.NioSocketImpl.implRead(NioSocketImpl.java:304)
+	at org.springframework.http.client.SimpleClientHttpResponse.getStatusCode(SimpleClientHttpResponse.java:63)

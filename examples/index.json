@@ -1,0 +1,86 @@
+[
+  {
+    "id": "st-data-integrity",
+    "type": "stacktrace",
+    "title": "Violação de unique constraint (Spring Data + Hibernate + PostgreSQL)",
+    "description": "DataIntegrityViolationException com três níveis de causa até a PSQLException.",
+    "file": "stacktraces/data-integrity-violation.txt"
+  },
+  {
+    "id": "st-npe-helpful",
+    "type": "stacktrace",
+    "title": "NullPointerException com mensagem detalhada",
+    "description": "Helpful NPE originada em um service, com proxies do Spring e frames do Tomcat.",
+    "file": "stacktraces/null-pointer.txt"
+  },
+  {
+    "id": "st-chained-suppressed",
+    "type": "stacktrace",
+    "title": "Exception encadeada com Suppressed e '... N more'",
+    "description": "Cadeia de domínio com causa NumberFormatException e exception suprimida no try-with-resources.",
+    "file": "stacktraces/chained-with-suppressed.txt"
+  },
+  {
+    "id": "st-lazy-init",
+    "type": "stacktrace",
+    "title": "LazyInitializationException",
+    "description": "Associação LAZY acessada fora da sessão do Hibernate durante a serialização.",
+    "file": "stacktraces/lazy-initialization.txt"
+  },
+  {
+    "id": "st-truncated-timeout",
+    "type": "stacktrace",
+    "title": "Stack trace truncado (timeout de leitura)",
+    "description": "Conteúdo copiado parcialmente: começa no meio da pilha, sem cabeçalho.",
+    "file": "stacktraces/truncated-socket-timeout.txt"
+  },
+  {
+    "id": "http-problem-409",
+    "type": "http",
+    "title": "Problem Details 409 (e-mail duplicado)",
+    "description": "Resposta RFC 9457 com errorCode e correlationId.",
+    "file": "http-errors/problem-details-409.json"
+  },
+  {
+    "id": "http-validation-400",
+    "type": "http",
+    "title": "Validação 400 com lista de campos",
+    "description": "Problem Details com array 'errors' de Bean Validation.",
+    "file": "http-errors/validation-400.json"
+  },
+  {
+    "id": "http-spring-500",
+    "type": "http",
+    "title": "Erro padrão do Spring Boot com stack trace exposto",
+    "description": "Formato /error do Spring Boot com campo 'trace' (má prática de segurança).",
+    "file": "http-errors/spring-boot-500-trace.json"
+  },
+  {
+    "id": "http-405-allow",
+    "type": "http",
+    "title": "405 Method Not Allowed com header Allow",
+    "description": "Método PATCH em recurso que aceita GET e POST.",
+    "file": "http-errors/method-not-allowed-405.json"
+  },
+  {
+    "id": "http-503-gateway",
+    "type": "http",
+    "title": "503 de gateway com Retry-After (HTML)",
+    "description": "Resposta HTML de proxy indicando indisponibilidade temporária.",
+    "file": "http-errors/gateway-503.json"
+  },
+  {
+    "id": "log-json-structured",
+    "type": "log",
+    "title": "Logs estruturados JSON (Logstash) de duas requisições",
+    "description": "Requisição bem-sucedida e requisição com violação de constraint, correlacionadas por correlationId.",
+    "file": "logs/structured-errorlens.json"
+  },
+  {
+    "id": "log-text-resilience",
+    "type": "log",
+    "title": "Logs em texto com retries e circuit breaker",
+    "description": "Formato padrão do Spring Boot com stack trace multilinha e eventos de resiliência.",
+    "file": "logs/application-resilience.log"
+  }
+]

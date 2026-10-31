@@ -1,0 +1,14 @@
+**/node_modules
+**/target
+**/dist
+**/.angular
+**/coverage
+**/test-results
+**/playwright-report
+.git
+.idea
+.vscode
+docs
+**/*.log
+!examples/logs/*.log
+.env

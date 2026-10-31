@@ -1,0 +1,7 @@
+{
+  "method": "POST",
+  "url": "http://localhost:8080/api/v1/lab/customers",
+  "status": 400,
+  "headers": "Content-Type: application/problem+json\nX-Correlation-Id: 0a9b8c7d-6e5f-4a3b-2c1d-0e9f8a7b6c5d",
+  "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"Bad Request\",\n  \"status\": 400,\n  \"detail\": \"Os dados enviados não são válidos.\",\n  \"instance\": \"/api/v1/lab/customers\",\n  \"errors\": [\n    { \"field\": \"name\", \"message\": \"O nome é obrigatório\", \"code\": \"NotBlank\" },\n    { \"field\": \"email\", \"message\": \"O e-mail deve ser válido\", \"code\": \"Email\" },\n    { \"field\": \"creditLimit\", \"message\": \"O limite de crédito não pode ser negativo\", \"code\": \"PositiveOrZero\" }\n  ],\n  \"errorCode\": \"VALIDATION_FAILED\",\n  \"correlationId\": \"0a9b8c7d-6e5f-4a3b-2c1d-0e9f8a7b6c5d\",\n  \"timestamp\": \"2026-10-31T12:01:00Z\"\n}"
+}

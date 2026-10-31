@@ -1,0 +1,155 @@
+<div class="page" data-testid="scenario-lab">
+  <div class="page-header">
+    <div class="page-icon"><el-icon name="flask" [size]="22" /></div>
+    <div>
+      <h1>Scenario Lab</h1>
+      <p>Cenários reproduzíveis executados contra o backend real: HTTP, validação, segurança, banco, exceptions e resiliência</p>
+    </div>
+    <span class="spacer"></span>
+    <button class="btn" type="button" (click)="load()"><el-icon name="refresh" [size]="15" [class.spin]="loading()" /> Atualizar</button>
+  </div>
+
+  @if (!auth.isAnalyst()) {
+    <div class="alert info small"><el-icon name="lock" [size]="16" /> Sua identidade ({{ auth.primaryRole() }}) pode consultar o catálogo, mas a execução exige ROLE_ANALYST ou ROLE_ADMIN.</div>
+  }
+
+  <div class="row wrap toolbar">
+    <div class="chips" data-testid="scenario-filters">
+      @for (f of filters; track f.key) {
+        <button type="button" class="chip" [class.active]="activeFilter() === f.key" (click)="activeFilter.set(f.key)">{{ f.label }}</button>
+      }
+    </div>
+    <span class="spacer"></span>
+    <input class="input search" placeholder="Filtrar por código, nome, exception…" [value]="query()" (input)="query.set($any($event.target).value)" data-testid="scenario-search" />
+  </div>
+
+  @if (result(); as r) {
+    <section class="card result" data-testid="execution-result" [class.ok]="r.summary.outcome === 'SUCCESS'" [class.fail]="r.summary.outcome === 'FAILURE'" [class.deg]="r.summary.outcome === 'DEGRADED'">
+      <div class="row wrap">
+        <el-icon [name]="r.summary.outcome === 'SUCCESS' ? 'circle-check' : r.summary.outcome === 'DEGRADED' ? 'alert' : 'x-circle'" [size]="22" />
+        <h3>Execução #{{ r.summary.id }} · {{ r.summary.scenarioCode }} – {{ r.summary.scenarioName }}</h3>
+        <span class="badge">modo {{ r.summary.mode }}</span>
+        <span class="spacer"></span>
+        <button class="btn ghost sm icon" type="button" (click)="result.set(null)" aria-label="Fechar"><el-icon name="x" [size]="15" /></button>
+      </div>
+      <div class="result-grid">
+        <div><span class="small muted">Status HTTP</span><el-status-badge [status]="r.summary.httpStatus" data-testid="result-status" /></div>
+        <div><span class="small muted">Resultado</span><el-outcome-badge [outcome]="r.summary.outcome" /></div>
+        <div><span class="small muted">Esperado</span><span class="badge" [class.success]="r.summary.matchedExpectation" [class.danger]="!r.summary.matchedExpectation">{{ r.summary.expectedStatus }} {{ r.summary.matchedExpectation ? '✓ conforme' : '✗ divergente' }}</span></div>
+        <div><span class="small muted">Duração</span><strong class="mono">{{ fmtDuration(r.summary.durationMs) }}</strong></div>
+        <div><span class="small muted">Exception</span><strong class="mono">{{ r.summary.exceptionClass ? simple(r.summary.exceptionClass) : '—' }}</strong></div>
+        <div class="wide"><span class="small muted">CorrelationId</span><span class="mono small" data-testid="result-correlation">{{ r.summary.correlationId }}</span></div>
+      </div>
+      @if (r.diagnoses.length) {
+        <div class="alert warning small"><el-icon name="lightbulb" [size]="16" /> <span><strong>Diagnóstico provável:</strong> {{ r.diagnoses[0].title }} (confiança {{ r.diagnoses[0].confidence }})</span></div>
+      }
+      @if (r.verification) {
+        <div class="alert small" [class.success]="r.verification.passed" [class.danger]="!r.verification.passed"><el-icon name="list-checks" [size]="16" /> {{ r.verification.name }}: <strong>{{ r.verification.conclusion }}</strong></div>
+      }
+      <div class="row wrap">
+        <button class="btn primary sm" type="button" (click)="openInvestigation(r.summary.id)" data-testid="open-investigation"><el-icon name="search" [size]="14" /> Abrir investigação</button>
+        <button class="btn sm" type="button" (click)="openInvestigation(r.summary.id, 'diagnosis')"><el-icon name="lightbulb" [size]="14" /> Diagnóstico</button>
+        <button class="btn sm" type="button" (click)="openInvestigation(r.summary.id, 'timeline')"><el-icon name="waypoints" [size]="14" /> Timeline</button>
+        <button class="btn sm" type="button" (click)="openInvestigation(r.summary.id, 'logs')"><el-icon name="file-text" [size]="14" /> Logs ({{ r.logCount }})</button>
+        @if (r.jaegerTraceUrl) {
+          <a class="btn sm" [href]="r.jaegerTraceUrl" target="_blank" rel="noopener"><el-icon name="telescope" [size]="14" /> Trace no Jaeger</a>
+        }
+      </div>
+    </section>
+  }
+
+  @if (loading() && !scenarios().length) {
+    <div class="grid grid-3">
+      @for (i of [1, 2, 3, 4, 5, 6]; track i) { <div class="skeleton" style="height: 220px"></div> }
+    </div>
+  } @else if (failed()) {
+    <el-empty-state icon="alert" title="Não foi possível carregar o catálogo" message="Verifique se o backend está em execução e tente novamente." />
+  }
+
+  @for (group of groups(); track group.name) {
+    <section class="group">
+      <h2 class="group-title">{{ group.name }} <span class="faint small">{{ group.items.length }}</span></h2>
+      <div class="grid grid-3">
+        @for (s of group.items; track s.code) {
+          <article class="card scenario" [id]="'scenario-' + s.code" [class.highlight]="code() === s.code" [attr.data-testid]="'scenario-' + s.code">
+            <header class="row">
+              <span class="code mono">{{ s.code }}</span>
+              <h3 class="ellipsis" [title]="s.name">{{ s.name }}</h3>
+              <span class="spacer"></span>
+              <span class="badge" [class.success]="s.expectedOutcome === 'SUCCESS'" [class.danger]="s.expectedOutcome === 'FAILURE'" [class.degraded]="s.expectedOutcome === 'DEGRADED'">{{ s.expectedOutcome === 'SUCCESS' ? 'Sucesso' : s.expectedOutcome === 'DEGRADED' ? 'Degradado' : 'Falha' }}</span>
+            </header>
+            <p class="small muted desc">{{ s.description }}</p>
+            <div class="endpoint row">
+              <el-method-badge [method]="s.httpMethod" />
+              <code class="ellipsis" [title]="s.endpoint">{{ s.endpoint }}</code>
+            </div>
+            <dl class="meta">
+              <div><dt>Esperado</dt><dd><el-status-badge [status]="s.expectedStatus" /></dd></div>
+              <div><dt>Categoria</dt><dd>{{ categoryLabel(s.category) }}</dd></div>
+              <div><dt>Tipo de falha</dt><dd class="mono small ellipsis" [title]="s.failureType ?? ''">{{ s.failureType ?? '—' }}</dd></div>
+              <div><dt>Dificuldade</dt><dd>{{ difficultyLabel(s.difficulty) }}</dd></div>
+            </dl>
+            <div class="stats small faint">
+              @if (s.executionCount) {
+                {{ s.executionCount }} execução(ões) · última HTTP {{ s.lastStatus ?? '—' }} em {{ fmtDate(s.lastExecutedAt) }}
+              } @else {
+                Ainda não executado
+              }
+            </div>
+            <footer class="row wrap">
+              <button class="btn primary sm" type="button" [disabled]="!auth.isAnalyst() || running() !== null" (click)="run(s)" [attr.data-testid]="'run-' + s.code">
+                @if (isRunning(s.code, 'DEFAULT')) { <el-icon name="loader" class="spin" [size]="14" /> } @else { <el-icon name="play" [size]="14" /> }
+                Executar
+              </button>
+              @if (s.compareSupported) {
+                <button class="btn sm success" type="button" [disabled]="!auth.isAnalyst() || running() !== null" (click)="run(s, 'SUCCESS')" title="Executar variante de sucesso" [attr.data-testid]="'run-success-' + s.code">
+                  @if (isRunning(s.code, 'SUCCESS')) { <el-icon name="loader" class="spin" [size]="14" /> } Sucesso
+                </button>
+                <button class="btn sm danger" type="button" [disabled]="!auth.isAnalyst() || running() !== null" (click)="run(s, 'FAILURE')" title="Executar variante de falha" [attr.data-testid]="'run-failure-' + s.code">
+                  @if (isRunning(s.code, 'FAILURE')) { <el-icon name="loader" class="spin" [size]="14" /> } Falha
+                </button>
+                <button class="btn sm" type="button" [disabled]="!auth.isAnalyst() || running() !== null" (click)="compare(s)" title="Executar ambos e comparar" [attr.data-testid]="'compare-' + s.code">
+                  @if (isRunning(s.code, 'COMPARE')) { <el-icon name="loader" class="spin" [size]="14" /> } @else { <el-icon name="compare" [size]="14" /> }
+                  Comparar
+                </button>
+              }
+              <span class="spacer"></span>
+              <button class="btn ghost sm" type="button" (click)="details.set(s)" [attr.data-testid]="'details-' + s.code"><el-icon name="info" [size]="14" /> Detalhes</button>
+            </footer>
+          </article>
+        }
+      </div>
+    </section>
+  } @empty {
+    @if (!loading() && !failed()) {
+      <el-empty-state icon="filter" title="Nenhum cenário corresponde aos filtros" />
+    }
+  }
+</div>
+
+<el-dialog [visible]="details() !== null" (closed)="details.set(null)" width="min(720px, 95vw)" [header]="details() ? details()!.code + ' — ' + details()!.name : ''">
+  @if (details(); as d) {
+    <div class="details" data-testid="scenario-details">
+      <p>{{ d.description }}</p>
+      <h4>Explicação técnica</h4>
+      <p class="muted">{{ d.explanation }}</p>
+      <dl class="kv">
+        <dt>Endpoint</dt><dd class="mono">{{ d.httpMethod }} {{ d.endpoint }}</dd>
+        <dt>Resultado esperado</dt><dd>HTTP {{ d.expectedStatus }} ({{ d.expectedOutcome }})</dd>
+        <dt>Tipo de falha</dt><dd class="mono">{{ d.failureType ?? '—' }}</dd>
+        <dt>Dificuldade</dt><dd>{{ difficultyLabel(d.difficulty) }}</dd>
+        <dt>Modos</dt><dd>{{ d.supportedModes.join(', ') }}</dd>
+      </dl>
+      @if (d.compareSupported) {
+        <h4>Compare Modes</h4>
+        <ul>
+          <li><span class="badge success">Sucesso</span> {{ d.successVariant }}</li>
+          <li><span class="badge danger">Falha</span> {{ d.failureVariant }}</li>
+        </ul>
+      }
+      @if (d.lastExecutionId && auth.isAnalyst()) {
+        <a [routerLink]="['/investigation', d.lastExecutionId]" (click)="details.set(null)">Abrir a última execução (#{{ d.lastExecutionId }})</a>
+      }
+    </div>
+  }
+</el-dialog>

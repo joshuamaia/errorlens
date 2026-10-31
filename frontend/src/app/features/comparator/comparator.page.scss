@@ -1,0 +1,120 @@
+.selector {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto;
+  align-items: end;
+  gap: 12px;
+}
+@media (max-width: 900px) {
+  .selector { grid-template-columns: 1fr; }
+  .swap { justify-self: center; }
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  &.a { border-top: 3px solid var(--el-info); }
+  &.b { border-top: 3px solid var(--el-primary); }
+  .side {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+    background: var(--el-surface-3);
+  }
+}
+
+.divergence {
+  align-items: center;
+}
+
+.obs {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+.note {
+  display: flex;
+  gap: 6px;
+  margin: 12px 0 0;
+}
+
+tr.diff td {
+  background: rgba(245, 176, 38, 0.08);
+}
+
+.legend {
+  margin-bottom: 10px;
+}
+
+.flow {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.flow-head,
+.flow-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+}
+.flow-head {
+  font-size: 12px;
+  color: var(--el-text-muted);
+  padding: 4px 8px;
+}
+.flow-row {
+  padding: 4px 8px;
+  border-radius: 6px;
+  &.STATUS_DIFFERENT { background: rgba(245, 176, 38, 0.07); }
+  &.LEFT_ONLY, &.RIGHT_ONLY { background: rgba(239, 68, 68, 0.06); }
+  &.first { outline: 2px solid var(--el-warning); }
+}
+.cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 26px;
+  .layer { width: 92px; flex-shrink: 0; }
+  .name { flex: 1; min-width: 0; font-size: 12.5px; }
+}
+.rel {
+  display: grid;
+  place-items: center;
+}
+
+.sub {
+  margin: 16px 0 8px;
+  font-size: 13px;
+}
+.cellwrap {
+  overflow-wrap: anywhere;
+}
+
+.exc {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--el-border);
+}
+
+.loglist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 380px;
+  overflow: auto;
+  font-size: 12.5px;
+  li { padding: 5px 0; border-bottom: 1px solid var(--el-border); }
+  li.err { color: var(--el-danger); }
+  li.warn { color: var(--el-warning); }
+}
+
+.fields td {
+  overflow-wrap: anywhere;
+}

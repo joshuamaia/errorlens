@@ -1,0 +1,17 @@
+org.springframework.http.converter.HttpMessageNotWritableException: Could not write JSON: failed to lazily initialize a collection of role: com.acme.shop.domain.Customer.orders: could not initialize proxy - no Session
+	at org.springframework.http.converter.json.AbstractJackson2HttpMessageConverter.writeInternal(AbstractJackson2HttpMessageConverter.java:492)
+	at org.springframework.web.servlet.mvc.method.annotation.AbstractMessageConverterMethodProcessor.writeWithMessageConverters(AbstractMessageConverterMethodProcessor.java:315)
+	at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1088)
+	at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:649)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+Caused by: com.fasterxml.jackson.databind.JsonMappingException: failed to lazily initialize a collection of role: com.acme.shop.domain.Customer.orders: could not initialize proxy - no Session (through reference chain: com.acme.shop.api.CustomerResponse["customer"]->com.acme.shop.domain.Customer["orders"])
+	at com.fasterxml.jackson.databind.JsonMappingException.wrapWithPath(JsonMappingException.java:402)
+	at com.fasterxml.jackson.databind.ser.std.StdSerializer.wrapAndThrow(StdSerializer.java:325)
+	... 12 more
+Caused by: org.hibernate.LazyInitializationException: failed to lazily initialize a collection of role: com.acme.shop.domain.Customer.orders: could not initialize proxy - no Session
+	at org.hibernate.collection.spi.AbstractPersistentCollection.throwLazyInitializationException(AbstractPersistentCollection.java:635)
+	at org.hibernate.collection.spi.AbstractPersistentCollection.withTemporarySessionIfNeeded(AbstractPersistentCollection.java:218)
+	at org.hibernate.collection.spi.PersistentBag.iterator(PersistentBag.java:369)
+	at com.acme.shop.api.CustomerMapper.toResponse(CustomerMapper.java:27)
+	at com.acme.shop.api.CustomerController.find(CustomerController.java:41)
+	... 20 more

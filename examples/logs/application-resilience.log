@@ -1,0 +1,18 @@
+2026-10-31 14:22:11.100 INFO  [http-nio-8080-exec-2] d.e.a.lab.LabIntegrationService - Consultando perfil externo do cliente 2 (até 4 tentativas) correlationId=d9b4c3e7-1a2f-4e6d-9c8b-5f7a2e9d4c8b traceId=8448eb211c80319c0af7651916cd43dd
+2026-10-31 14:22:11.142 WARN  [http-nio-8080-exec-2] d.e.i.resilience.ResilienceEventRecorder - Retry 'customerProfile': Tentativa 1 falhou (ServiceUnavailable); nova tentativa em 200 ms correlationId=d9b4c3e7-1a2f-4e6d-9c8b-5f7a2e9d4c8b traceId=8448eb211c80319c0af7651916cd43dd
+2026-10-31 14:22:11.355 WARN  [http-nio-8080-exec-2] d.e.i.resilience.ResilienceEventRecorder - Retry 'customerProfile': Tentativa 2 falhou (ServiceUnavailable); nova tentativa em 400 ms correlationId=d9b4c3e7-1a2f-4e6d-9c8b-5f7a2e9d4c8b traceId=8448eb211c80319c0af7651916cd43dd
+2026-10-31 14:22:11.771 WARN  [http-nio-8080-exec-2] d.e.i.resilience.ResilienceEventRecorder - Retry 'customerProfile': Tentativa 3 falhou (ServiceUnavailable); nova tentativa em 800 ms correlationId=d9b4c3e7-1a2f-4e6d-9c8b-5f7a2e9d4c8b traceId=8448eb211c80319c0af7651916cd43dd
+2026-10-31 14:22:12.590 ERROR [http-nio-8080-exec-2] d.e.i.resilience.ResilienceEventRecorder - Retry 'customerProfile': Tentativas esgotadas: 4 tentativa(s); última falha: ServiceUnavailable correlationId=d9b4c3e7-1a2f-4e6d-9c8b-5f7a2e9d4c8b traceId=8448eb211c80319c0af7651916cd43dd
+2026-10-31 14:22:12.598 ERROR [http-nio-8080-exec-2] d.e.i.error.GlobalExceptionHandler - Falha de aplicação [DEPENDENCY_FAILURE]: O serviço de perfil de clientes permaneceu indisponível após 4 tentativas. correlationId=d9b4c3e7-1a2f-4e6d-9c8b-5f7a2e9d4c8b traceId=8448eb211c80319c0af7651916cd43dd
+dev.errorlens.domain.exception.ExternalDependencyException: O serviço de perfil de clientes permaneceu indisponível após 4 tentativas.
+	at dev.errorlens.application.lab.LabIntegrationService.customerProfile(LabIntegrationService.java:111)
+	at dev.errorlens.interfaces.lab.LabIntegrationController.customerProfile(LabIntegrationController.java:52)
+Caused by: org.springframework.web.client.HttpServerErrorException$ServiceUnavailable: 503 Service Unavailable: "{"error":"simulated"}"
+	at org.springframework.web.client.HttpServerErrorException.create(HttpServerErrorException.java:117)
+	... 30 more
+2026-10-31 14:25:40.010 INFO  [http-nio-8080-exec-9] d.e.a.lab.LabIntegrationService - Fase 1: chamadas ao gateway de pagamentos até o circuito abrir (estado inicial CLOSED) correlationId=b1a2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
+2026-10-31 14:25:40.120 WARN  [http-nio-8080-exec-9] d.e.i.resilience.ResilienceEventRecorder - CircuitBreaker 'paymentGateway': transição CLOSED -> OPEN correlationId=b1a2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
+2026-10-31 14:25:40.121 WARN  [http-nio-8080-exec-9] d.e.i.resilience.ResilienceEventRecorder - CircuitBreaker 'paymentGateway': chamada rejeitada (circuito OPEN) correlationId=b1a2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
+2026-10-31 14:25:41.430 WARN  [http-nio-8080-exec-9] d.e.i.resilience.ResilienceEventRecorder - CircuitBreaker 'paymentGateway': transição OPEN -> HALF_OPEN correlationId=b1a2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
+2026-10-31 14:25:41.470 WARN  [http-nio-8080-exec-9] d.e.i.resilience.ResilienceEventRecorder - CircuitBreaker 'paymentGateway': transição HALF_OPEN -> OPEN correlationId=b1a2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
+2026-10-31 14:25:41.475 WARN  [http-nio-8080-exec-9] d.e.i.error.GlobalExceptionHandler - Chamada rejeitada pelo Circuit Breaker: CircuitBreaker 'paymentGateway' is OPEN and does not permit further calls correlationId=b1a2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d

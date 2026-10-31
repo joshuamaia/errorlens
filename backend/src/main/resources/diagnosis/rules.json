@@ -1,0 +1,852 @@
+[
+  {
+    "id": "NULL_REFERENCE",
+    "title": "Possível acesso a referência nula",
+    "category": "EXCEPTIONS",
+    "description": "Um método ou campo foi acessado em uma referência nula. A mensagem detalhada da JVM (Helpful NullPointerException) costuma indicar exatamente qual expressão era nula.",
+    "match": {
+      "exceptions": [
+        "NullPointerException"
+      ],
+      "messagePatterns": [
+        "because \"[^\"]+\" is null",
+        "Cannot invoke"
+      ],
+      "httpStatuses": [
+        500
+      ]
+    },
+    "possibleCauses": [
+      "Método ou contrato legado que retorna null em vez de Optional ou objeto vazio",
+      "Dado opcional no banco (coluna nula) usado sem verificação",
+      "Dependência não injetada ou objeto não inicializado"
+    ],
+    "suggestions": [
+      "Leia a mensagem da NPE: o trecho 'because ... is null' identifica a expressão nula",
+      "Localize o primeiro frame da aplicação no stack trace e revise a linha indicada",
+      "Verifique se o registro consultado possui os campos opcionais preenchidos"
+    ],
+    "fixes": [
+      "Retornar Optional e tratar a ausência explicitamente",
+      "Validar pré-condições com Objects.requireNonNull e mensagens claras",
+      "Aplicar valores padrão ou Null Object para dados opcionais"
+    ],
+    "codeExample": "Optional<LoyaltyProfile> profile = findProfile(customer.getLoyaltyTier());\nreturn profile\n    .map(p -> summarize(customer, p))\n    .orElseGet(() -> LoyaltySummary.semPrograma(customer));"
+  },
+  {
+    "id": "DB_UNIQUE_VIOLATION",
+    "title": "Violação de unicidade no banco de dados",
+    "category": "BANCO_DE_DADOS",
+    "description": "O banco rejeitou a gravação porque já existe um registro com o mesmo valor em uma coluna com restrição UNIQUE.",
+    "match": {
+      "exceptions": [
+        "DataIntegrityViolationException",
+        "DuplicateKeyException",
+        "PSQLException",
+        "org.hibernate.exception.ConstraintViolationException"
+      ],
+      "messagePatterns": [
+        "duplicate key value",
+        "unique constraint",
+        "uk_[a-z_]+",
+        "já existe"
+      ],
+      "httpStatuses": [
+        409
+      ],
+      "errorCodes": [
+        "CUSTOMER_EMAIL_DUPLICATED"
+      ],
+      "sqlStates": [
+        "23505"
+      ],
+      "requireMessageMatch": true,
+      "allowWithoutException": true
+    },
+    "possibleCauses": [
+      "Cadastro repetido do mesmo valor (ex.: e-mail já utilizado)",
+      "Reenvio da mesma requisição (duplo clique, retry de cliente sem idempotência)",
+      "Condição de corrida entre duas inserções simultâneas"
+    ],
+    "suggestions": [
+      "Identifique a constraint citada na mensagem (ex.: uk_customers_email)",
+      "Verifique se o valor já existe no banco antes de repetir a operação",
+      "Confirme se o cliente HTTP repete requisições automaticamente"
+    ],
+    "fixes": [
+      "Traduzir a violação em HTTP 409 com mensagem de negócio clara",
+      "Usar chave de idempotência em operações de criação",
+      "Manter a constraint no banco como fonte de verdade, mesmo com validação prévia"
+    ],
+    "codeExample": "@ExceptionHandler(DataIntegrityViolationException.class)\nResponseEntity<ProblemDetail> handle(DataIntegrityViolationException ex) {\n    ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,\n        \"Já existe um cliente com o e-mail informado.\");\n    return ResponseEntity.status(409).body(pd);\n}"
+  },
+  {
+    "id": "DB_FOREIGN_KEY_VIOLATION",
+    "title": "Violação de integridade referencial",
+    "category": "BANCO_DE_DADOS",
+    "description": "A operação quebraria um relacionamento protegido por chave estrangeira (ex.: excluir um registro ainda referenciado).",
+    "match": {
+      "exceptions": [
+        "DataIntegrityViolationException",
+        "PSQLException",
+        "org.hibernate.exception.ConstraintViolationException"
+      ],
+      "messagePatterns": [
+        "violates foreign key constraint",
+        "fk_[a-z_]+",
+        "is still referenced",
+        "possui pedidos associados"
+      ],
+      "httpStatuses": [
+        409
+      ],
+      "errorCodes": [
+        "CUSTOMER_HAS_ORDERS"
+      ],
+      "sqlStates": [
+        "23503"
+      ],
+      "requireMessageMatch": true,
+      "allowWithoutException": true
+    },
+    "possibleCauses": [
+      "Exclusão de um registro que ainda possui dependentes (ex.: cliente com pedidos)",
+      "Inserção com referência a um registro inexistente"
+    ],
+    "suggestions": [
+      "Identifique a constraint e a tabela dependente na mensagem do driver",
+      "Consulte os registros dependentes antes da exclusão"
+    ],
+    "fixes": [
+      "Bloquear a exclusão com mensagem de negócio (409) ou aplicar exclusão lógica",
+      "Excluir/arquivar dependentes explicitamente quando a regra de negócio permitir"
+    ],
+    "codeExample": "if (orders.countByCustomerId(id) > 0) {\n    throw new BusinessConflictException(\"Cliente possui pedidos\");\n}"
+  },
+  {
+    "id": "DB_SCHEMA_MISMATCH",
+    "title": "Estrutura de banco inexistente ou incompatível",
+    "category": "BANCO_DE_DADOS",
+    "description": "O comando SQL referencia tabela ou coluna que não existe no esquema atual.",
+    "match": {
+      "exceptions": [
+        "BadSqlGrammarException",
+        "InvalidDataAccessResourceUsageException",
+        "SQLGrammarException"
+      ],
+      "messagePatterns": [
+        "relation \"[^\"]+\" does not exist",
+        "column \"[^\"]+\" does not exist"
+      ],
+      "httpStatuses": [
+        500
+      ],
+      "errorCodes": [
+        "PERSISTENCE_FAILURE"
+      ],
+      "sqlStates": [
+        "42P01",
+        "42703"
+      ]
+    },
+    "possibleCauses": [
+      "Migration não aplicada ou aplicada em ordem diferente",
+      "Código implantado antes da alteração de esquema",
+      "Nome de tabela/coluna digitado incorretamente"
+    ],
+    "suggestions": [
+      "Consulte a tabela flyway_schema_history para conferir as migrations aplicadas",
+      "Compare o nome citado na mensagem com o esquema real (\\d tabela no psql)"
+    ],
+    "fixes": [
+      "Criar a migration ausente (ex.: V4__create_customer_archive.sql)",
+      "Validar o esquema na inicialização (spring.jpa.hibernate.ddl-auto=validate)"
+    ],
+    "codeExample": "-- V4__create_customer_archive.sql\nCREATE TABLE customer_archive (\n    customer_id BIGINT NOT NULL,\n    reason VARCHAR(200) NOT NULL,\n    archived_at TIMESTAMPTZ NOT NULL\n);"
+  },
+  {
+    "id": "SQL_TIMEOUT",
+    "title": "Timeout em operação SQL",
+    "category": "BANCO_DE_DADOS",
+    "description": "Uma consulta ou comando SQL excedeu o tempo limite configurado.",
+    "match": {
+      "exceptions": [
+        "SQLTimeoutException",
+        "QueryTimeoutException",
+        "PessimisticLockingFailureException",
+        "CannotAcquireLockException"
+      ],
+      "messagePatterns": [
+        "canceling statement due to statement timeout",
+        "lock timeout"
+      ],
+      "sqlStates": [
+        "57014",
+        "55P03"
+      ]
+    },
+    "possibleCauses": [
+      "Consulta sem índice adequado",
+      "Bloqueio (lock) mantido por outra transação",
+      "Volume de dados maior que o esperado"
+    ],
+    "suggestions": [
+      "Analise o plano de execução (EXPLAIN ANALYZE)",
+      "Verifique locks ativos em pg_stat_activity / pg_locks"
+    ],
+    "fixes": [
+      "Criar índices para os filtros utilizados",
+      "Reduzir o escopo das transações",
+      "Configurar timeouts explícitos e paginação"
+    ],
+    "codeExample": null
+  },
+  {
+    "id": "TRANSACTION_CONFLICT",
+    "title": "Conflito de concorrência otimista",
+    "category": "BANCO_DE_DADOS",
+    "description": "O registro foi alterado por outra transação entre a leitura e a gravação (controle por @Version).",
+    "match": {
+      "exceptions": [
+        "OptimisticLockingFailureException",
+        "ObjectOptimisticLockingFailureException",
+        "OptimisticLockException",
+        "StaleObjectStateException"
+      ],
+      "httpStatuses": [
+        409
+      ],
+      "errorCodes": [
+        "CONCURRENT_MODIFICATION"
+      ]
+    },
+    "possibleCauses": [
+      "Duas requisições alterando o mesmo registro",
+      "Cliente enviando versão desatualizada"
+    ],
+    "suggestions": [
+      "Compare as versões do registro nas duas operações",
+      "Verifique se o frontend recarrega os dados após salvar"
+    ],
+    "fixes": [
+      "Reler o registro e reaplicar a alteração",
+      "Informar o usuário sobre a edição concorrente"
+    ],
+    "codeExample": null
+  },
+  {
+    "id": "LAZY_INITIALIZATION",
+    "title": "Acesso a associação fora do contexto de persistência",
+    "category": "BANCO_DE_DADOS",
+    "description": "Uma associação LAZY foi acessada depois que a sessão do Hibernate foi fechada.",
+    "match": {
+      "exceptions": [
+        "LazyInitializationException"
+      ],
+      "messagePatterns": [
+        "could not initialize proxy",
+        "no Session"
+      ]
+    },
+    "possibleCauses": [
+      "Entidade serializada fora da transação",
+      "open-in-view desabilitado e mapeamento feito no controller"
+    ],
+    "suggestions": [
+      "Identifique a associação citada na mensagem",
+      "Verifique onde a entidade é convertida em DTO"
+    ],
+    "fixes": [
+      "Usar JOIN FETCH ou @EntityGraph na consulta",
+      "Converter para DTO dentro do método @Transactional"
+    ],
+    "codeExample": "@EntityGraph(attributePaths = \"customer\")\nOptional<Order> findWithCustomerById(Long id);"
+  },
+  {
+    "id": "BEAN_VALIDATION",
+    "title": "Dados não atendem às validações",
+    "category": "VALIDACAO",
+    "description": "O payload foi interpretado, mas violou restrições de Bean Validation (@NotBlank, @Email, etc.). A requisição foi rejeitada antes da lógica de negócio.",
+    "match": {
+      "exceptions": [
+        "MethodArgumentNotValidException",
+        "BindException",
+        "jakarta.validation.ConstraintViolationException",
+        "HandlerMethodValidationException"
+      ],
+      "messagePatterns": [
+        "Validation failed",
+        "must not be blank"
+      ],
+      "httpStatuses": [
+        400
+      ],
+      "errorCodes": [
+        "VALIDATION_FAILED",
+        "CONSTRAINT_VIOLATION"
+      ],
+      "allowWithoutException": true
+    },
+    "possibleCauses": [
+      "Campos obrigatórios ausentes ou vazios",
+      "Formato inválido (e-mail, documento)",
+      "Valores fora do intervalo permitido"
+    ],
+    "suggestions": [
+      "Leia a lista 'errors' do Problem Details: cada item indica campo e regra violada",
+      "Confira se o frontend aplica as mesmas validações"
+    ],
+    "fixes": [
+      "Corrigir os dados enviados",
+      "Espelhar as validações no formulário do cliente"
+    ],
+    "codeExample": "public record CreateCustomerRequest(\n    @NotBlank String name,\n    @NotBlank @Email String email,\n    @NotNull @PositiveOrZero BigDecimal creditLimit) {}"
+  },
+  {
+    "id": "UNREADABLE_BODY",
+    "title": "Corpo HTTP inválido",
+    "category": "VALIDACAO",
+    "description": "O corpo da requisição não pôde ser convertido (JSON malformado, tipo incompatível ou corpo ausente).",
+    "match": {
+      "exceptions": [
+        "HttpMessageNotReadableException",
+        "JsonParseException",
+        "StreamReadException",
+        "MismatchedInputException",
+        "InvalidFormatException"
+      ],
+      "messagePatterns": [
+        "JSON parse error",
+        "Unexpected character",
+        "Required request body is missing"
+      ],
+      "httpStatuses": [
+        400
+      ],
+      "errorCodes": [
+        "MALFORMED_REQUEST_BODY"
+      ],
+      "allowWithoutException": true
+    },
+    "possibleCauses": [
+      "JSON com erro de sintaxe (vírgulas, aspas, chaves)",
+      "Tipo de dado diferente do esperado no DTO",
+      "Content-Type incorreto ou corpo vazio"
+    ],
+    "suggestions": [
+      "Valide o JSON em um linter",
+      "Compare o payload com o contrato OpenAPI do endpoint"
+    ],
+    "fixes": [
+      "Serializar o corpo com uma biblioteca JSON em vez de concatenar strings",
+      "Ajustar os tipos do payload ao DTO"
+    ],
+    "codeExample": null
+  },
+  {
+    "id": "PARAMETER_TYPE_MISMATCH",
+    "title": "Parâmetro com tipo incompatível",
+    "category": "VALIDACAO",
+    "description": "Um parâmetro de rota ou query não pôde ser convertido para o tipo esperado pelo endpoint.",
+    "match": {
+      "exceptions": [
+        "MethodArgumentTypeMismatchException",
+        "TypeMismatchException",
+        "ConversionFailedException"
+      ],
+      "messagePatterns": [
+        "Failed to convert value",
+        "For input string"
+      ],
+      "httpStatuses": [
+        400
+      ],
+      "errorCodes": [
+        "INVALID_PARAMETER_TYPE"
+      ]
+    },
+    "possibleCauses": [
+      "Identificador não numérico enviado em rota que espera Long",
+      "Formato de data ou enum inválido"
+    ],
+    "suggestions": [
+      "Confira o valor e o nome do parâmetro na URL",
+      "Verifique a construção da URL no cliente"
+    ],
+    "fixes": [
+      "Validar o parâmetro no cliente",
+      "Documentar o formato esperado no OpenAPI"
+    ],
+    "codeExample": null
+  },
+  {
+    "id": "METHOD_NOT_ALLOWED",
+    "title": "Método HTTP não suportado",
+    "category": "HTTP",
+    "description": "O recurso existe, mas não aceita o método HTTP utilizado.",
+    "match": {
+      "exceptions": [
+        "HttpRequestMethodNotSupportedException"
+      ],
+      "messagePatterns": [
+        "Request method '[A-Z]+' is not supported"
+      ],
+      "httpStatuses": [
+        405
+      ],
+      "errorCodes": [
+        "METHOD_NOT_ALLOWED"
+      ],
+      "allowWithoutException": true
+    },
+    "possibleCauses": [
+      "Cliente usando PATCH/PUT onde apenas GET/POST são mapeados",
+      "Rota correta com verbo incorreto"
+    ],
+    "suggestions": [
+      "Consulte o header Allow da resposta",
+      "Compare com os mapeamentos do controller ou com o OpenAPI"
+    ],
+    "fixes": [
+      "Usar o método suportado",
+      "Implementar o mapeamento caso a operação seja necessária"
+    ],
+    "codeExample": null
+  },
+  {
+    "id": "RESOURCE_NOT_FOUND",
+    "title": "Recurso não encontrado",
+    "category": "HTTP",
+    "description": "O identificador informado não corresponde a nenhum registro existente.",
+    "match": {
+      "exceptions": [
+        "ResourceNotFoundException",
+        "EntityNotFoundException",
+        "NoSuchElementException",
+        "EmptyResultDataAccessException",
+        "NoResourceFoundException"
+      ],
+      "messagePatterns": [
+        "não encontrado",
+        "not found"
+      ],
+      "httpStatuses": [
+        404
+      ],
+      "errorCodes": [
+        "CUSTOMER_NOT_FOUND",
+        "ORDER_NOT_FOUND"
+      ],
+      "allowWithoutException": true
+    },
+    "possibleCauses": [
+      "Registro excluído ou nunca criado",
+      "Identificador incorreto no cliente",
+      "Consulta em ambiente/banco diferente"
+    ],
+    "suggestions": [
+      "Confirme a existência do registro no banco",
+      "Verifique a origem do identificador utilizado"
+    ],
+    "fixes": [
+      "Tratar 404 no cliente com mensagem amigável",
+      "Evitar links para registros removidos"
+    ],
+    "codeExample": null
+  },
+  {
+    "id": "AUTHENTICATION_REQUIRED",
+    "title": "Requisição sem autenticação válida",
+    "category": "SEGURANCA",
+    "description": "O recurso exige autenticação e a requisição não apresentou credenciais válidas.",
+    "match": {
+      "exceptions": [
+        "InsufficientAuthenticationException",
+        "AuthenticationCredentialsNotFoundException",
+        "BadCredentialsException",
+        "AuthenticationException"
+      ],
+      "messagePatterns": [
+        "Full authentication is required"
+      ],
+      "httpStatuses": [
+        401
+      ],
+      "errorCodes": [
+        "AUTHENTICATION_REQUIRED",
+        "INVALID_CREDENTIALS"
+      ],
+      "allowWithoutException": true
+    },
+    "possibleCauses": [
+      "Header Authorization ausente",
+      "Token expirado ou credenciais incorretas",
+      "Proxy removendo headers de autenticação"
+    ],
+    "suggestions": [
+      "Verifique o header WWW-Authenticate da resposta",
+      "Confirme se o cliente envia o header Authorization"
+    ],
+    "fixes": [
+      "Autenticar antes de acessar o recurso",
+      "Renovar o token expirado"
+    ],
+    "codeExample": null
+  },
+  {
+    "id": "ACCESS_DENIED",
+    "title": "Identidade autenticada sem permissão",
+    "category": "SEGURANCA",
+    "description": "A identidade foi autenticada, mas não possui a autorização (role) exigida pelo recurso.",
+    "match": {
+      "exceptions": [
+        "AuthorizationDeniedException",
+        "AccessDeniedException"
+      ],
+      "messagePatterns": [
+        "Access Denied"
+      ],
+      "httpStatuses": [
+        403
+      ],
+      "errorCodes": [
+        "ACCESS_DENIED"
+      ],
+      "allowWithoutException": true
+    },
+    "possibleCauses": [
+      "Usuário sem a role necessária",
+      "Regra de autorização mais restritiva que o esperado"
+    ],
+    "suggestions": [
+      "Compare as roles do usuário com a regra do SecurityFilterChain",
+      "Verifique se o recurso deveria aceitar outras roles"
+    ],
+    "fixes": [
+      "Conceder a role adequada à identidade",
+      "Ajustar a regra de autorização se estiver incorreta"
+    ],
+    "codeExample": ".requestMatchers(\"/api/v1/lab/secure/**\").hasRole(\"AUDITOR\")"
+  },
+  {
+    "id": "ILLEGAL_ARGUMENT",
+    "title": "Argumento inválido rejeitado pela aplicação",
+    "category": "EXCEPTIONS",
+    "description": "Um método validou seus argumentos e lançou IllegalArgumentException.",
+    "match": {
+      "exceptions": [
+        "IllegalArgumentException"
+      ],
+      "httpStatuses": [
+        400,
+        500
+      ],
+      "errorCodes": [
+        "INVALID_ARGUMENT"
+      ]
+    },
+    "possibleCauses": [
+      "Valor fora do intervalo permitido",
+      "Combinação inválida de parâmetros"
+    ],
+    "suggestions": [
+      "Leia a mensagem da exception: ela descreve a regra violada",
+      "Localize o construtor/método que valida o argumento no stack trace"
+    ],
+    "fixes": [
+      "Validar a entrada na borda da API (Bean Validation)",
+      "Mapear IllegalArgumentException para 400 com mensagem clara"
+    ],
+    "codeExample": "public record DiscountPolicy(int percentage) {\n    public DiscountPolicy {\n        if (percentage < 0 || percentage > 100)\n            throw new IllegalArgumentException(\"Percentual inválido\");\n    }\n}"
+  },
+  {
+    "id": "ILLEGAL_STATE",
+    "title": "Operação executada em estado inválido",
+    "category": "EXCEPTIONS",
+    "description": "O objeto não estava em um estado que permitisse a operação solicitada.",
+    "match": {
+      "exceptions": [
+        "IllegalStateException",
+        "UnsupportedOperationException",
+        "ConcurrentModificationException"
+      ]
+    },
+    "possibleCauses": [
+      "Ordem incorreta de chamadas",
+      "Coleção modificada durante iteração",
+      "Recurso já fechado ou consumido"
+    ],
+    "suggestions": [
+      "Revise a sequência de chamadas até o ponto da falha",
+      "Verifique acesso concorrente a objetos mutáveis"
+    ],
+    "fixes": [
+      "Validar o estado antes da operação",
+      "Usar estruturas thread-safe ou cópias defensivas"
+    ],
+    "codeExample": null
+  },
+  {
+    "id": "NUMBER_FORMAT",
+    "title": "Conversão numérica inválida",
+    "category": "EXCEPTIONS",
+    "description": "Um texto não numérico foi convertido para número (Integer.parseInt, Long.valueOf, etc.).",
+    "match": {
+      "exceptions": [
+        "NumberFormatException"
+      ],
+      "messagePatterns": [
+        "For input string: \"[^\"]*\""
+      ]
+    },
+    "possibleCauses": [
+      "Dado armazenado em formato livre (ex.: 'três' em vez de '3')",
+      "Entrada do usuário sem validação",
+      "Separador decimal/locale diferente"
+    ],
+    "suggestions": [
+      "Veja o valor citado em 'For input string'",
+      "Localize a origem do dado (banco, arquivo, integração)"
+    ],
+    "fixes": [
+      "Validar e normalizar o dado na entrada",
+      "Armazenar valores numéricos em colunas tipadas"
+    ],
+    "codeExample": "try {\n    return Integer.parseInt(value);\n} catch (NumberFormatException ex) {\n    throw new InvoiceDataException(\"Metadado inválido\", ex);\n}"
+  },
+  {
+    "id": "CHAINED_DOMAIN_FAILURE",
+    "title": "Falha de domínio com causa encadeada",
+    "category": "EXCEPTIONS",
+    "description": "Uma exception de domínio encapsula uma causa técnica. A root cause indica a origem provável; as camadas intermediárias mostram como a falha foi traduzida.",
+    "match": {
+      "exceptions": [
+        "InvoiceGenerationException",
+        "InvoiceDataException"
+      ],
+      "httpStatuses": [
+        422
+      ],
+      "errorCodes": [
+        "INVOICE_GENERATION_FAILED"
+      ],
+      "allowWithoutException": true
+    },
+    "possibleCauses": [
+      "Dado corrompido ou fora do formato esperado",
+      "Falha técnica traduzida em erro de negócio"
+    ],
+    "suggestions": [
+      "Analise o último 'Caused by' do stack trace (root cause)",
+      "Verifique o registro de dados citado na mensagem"
+    ],
+    "fixes": [
+      "Corrigir o dado de origem",
+      "Validar o formato do dado no momento da gravação"
+    ],
+    "codeExample": null
+  },
+  {
+    "id": "TRANSACTION_FAILURE_ROLLBACK",
+    "title": "Falha de negócio dentro de transação",
+    "category": "BANCO_DE_DADOS",
+    "description": "Uma exception de runtime foi lançada dentro de um método @Transactional, provocando rollback.",
+    "match": {
+      "exceptions": [
+        "InventoryReservationException",
+        "UnexpectedRollbackException",
+        "TransactionSystemException"
+      ],
+      "httpStatuses": [
+        500
+      ],
+      "errorCodes": [
+        "INVENTORY_RESERVATION_FAILED"
+      ]
+    },
+    "possibleCauses": [
+      "Regra de negócio violada após gravações parciais",
+      "Dependência interna indisponível durante a transação"
+    ],
+    "suggestions": [
+      "Verifique se houve ROLLBACK na timeline",
+      "Confirme no banco que não restaram alterações parciais"
+    ],
+    "fixes": [
+      "Validar pré-condições (ex.: estoque) antes de gravar",
+      "Manter a transação curta e atômica"
+    ],
+    "codeExample": null
+  },
+  {
+    "id": "CONNECTION_FAILURE",
+    "title": "Falha de conexão com dependência",
+    "category": "INTEGRACAO",
+    "description": "Não foi possível estabelecer conexão com o serviço remoto.",
+    "match": {
+      "exceptions": [
+        "ConnectException",
+        "UnknownHostException",
+        "NoRouteToHostException",
+        "ResourceAccessException",
+        "ClosedChannelException"
+      ],
+      "messagePatterns": [
+        "Connection refused",
+        "I/O error on"
+      ]
+    },
+    "possibleCauses": [
+      "Serviço remoto fora do ar",
+      "Host/porta incorretos",
+      "Firewall ou DNS"
+    ],
+    "suggestions": [
+      "Verifique a saúde do serviço remoto",
+      "Teste a conectividade a partir do container (DNS e porta)"
+    ],
+    "fixes": [
+      "Configurar retry com backoff e circuit breaker",
+      "Ajustar URL/porta do serviço"
+    ],
+    "codeExample": null
+  },
+  {
+    "id": "COMMUNICATION_TIMEOUT",
+    "title": "Tempo limite de comunicação excedido",
+    "category": "RESILIENCIA",
+    "description": "A dependência não respondeu dentro do limite configurado (timeout de leitura ou TimeLimiter).",
+    "match": {
+      "exceptions": [
+        "SocketTimeoutException",
+        "HttpTimeoutException",
+        "TimeoutException",
+        "ExternalDependencyTimeoutException"
+      ],
+      "messagePatterns": [
+        "timed out",
+        "recorded a timeout",
+        "excedeu o limite"
+      ],
+      "httpStatuses": [
+        504
+      ],
+      "errorCodes": [
+        "DEPENDENCY_TIMEOUT"
+      ],
+      "allowWithoutException": true
+    },
+    "possibleCauses": [
+      "Dependência lenta ou sobrecarregada",
+      "Limite de tempo muito baixo para a operação",
+      "Latência de rede"
+    ],
+    "suggestions": [
+      "Compare a duração da chamada com o limite configurado",
+      "Consulte o trace no Jaeger para ver o tempo gasto na dependência"
+    ],
+    "fixes": [
+      "Ajustar o timeout à latência esperada (p99)",
+      "Aplicar fallback ou resposta assíncrona",
+      "Cancelar chamadas excedentes para liberar recursos"
+    ],
+    "codeExample": "resilience4j.timelimiter.instances.creditScore:\n  timeout-duration: 1500ms\n  cancel-running-future: true"
+  },
+  {
+    "id": "DEPENDENCY_SERVER_ERROR",
+    "title": "Dependência externa retornou erro",
+    "category": "INTEGRACAO",
+    "description": "A chamada à dependência retornou HTTP 5xx.",
+    "match": {
+      "exceptions": [
+        "HttpServerErrorException",
+        "ServiceUnavailable",
+        "InternalServerError",
+        "BadGateway",
+        "ExternalDependencyException"
+      ],
+      "httpStatuses": [
+        502,
+        503
+      ],
+      "errorCodes": [
+        "DEPENDENCY_FAILURE"
+      ],
+      "allowWithoutException": true,
+      "messagePatterns": [
+        "Service Unavailable",
+        "Bad Gateway",
+        "503",
+        "502"
+      ]
+    },
+    "possibleCauses": [
+      "Indisponibilidade temporária da dependência",
+      "Erro interno no serviço remoto"
+    ],
+    "suggestions": [
+      "Verifique os logs da dependência pelo correlationId propagado",
+      "Consulte o trace distribuído no Jaeger"
+    ],
+    "fixes": [
+      "Retry com backoff para falhas transitórias",
+      "Circuit breaker e fallback para indisponibilidade prolongada"
+    ],
+    "codeExample": null
+  },
+  {
+    "id": "MEMORY_EXHAUSTION",
+    "title": "Esgotamento de memória ou pilha",
+    "category": "EXCEPTIONS",
+    "description": "A JVM ficou sem memória heap/metaspace ou a pilha de chamadas estourou.",
+    "match": {
+      "exceptions": [
+        "OutOfMemoryError",
+        "StackOverflowError"
+      ],
+      "messagePatterns": [
+        "Java heap space",
+        "Metaspace",
+        "GC overhead"
+      ]
+    },
+    "possibleCauses": [
+      "Carga de grandes volumes em memória",
+      "Vazamento de memória",
+      "Recursão sem condição de parada"
+    ],
+    "suggestions": [
+      "Gere e analise um heap dump",
+      "Procure frames repetidos no stack trace (recursão)"
+    ],
+    "fixes": [
+      "Paginar/streamar dados",
+      "Corrigir a recursão",
+      "Ajustar limites de memória do container"
+    ],
+    "codeExample": null
+  },
+  {
+    "id": "CLASS_CAST",
+    "title": "Conversão de tipo inválida",
+    "category": "EXCEPTIONS",
+    "description": "Um objeto foi convertido para um tipo incompatível.",
+    "match": {
+      "exceptions": [
+        "ClassCastException"
+      ]
+    },
+    "possibleCauses": [
+      "Uso de tipos raw ou Object em coleções",
+      "Desserialização para tipo incorreto"
+    ],
+    "suggestions": [
+      "Verifique os tipos citados na mensagem"
+    ],
+    "fixes": [
+      "Usar generics corretamente",
+      "Validar o tipo com pattern matching (instanceof)"
+    ],
+    "codeExample": null
+  }
+]
